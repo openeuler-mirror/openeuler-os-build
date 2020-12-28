@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<repos>
+	<repo name="hpcc" url="http://obsserver_ip/EulerOS:/V3R1:/GENERAL:/Kernel/standard_aarch64/">
+		<arch type="aarch64">
+			<rpm name="kernel-devel"/>
+			<rpm name="kernel-headers"/>
+		</arch>
+    </repo>
+	<repo name="EulerOS" url="http://obsserver_ip/EulerOS:/V3R1:/COMMOM/standard_aarch64/">
+		<arch type="aarch64">
+			<rpm name="cpp"/>
+			<rpm name="gcc"/>
+			<rpm name="gcc-c++"/>
+			<rpm name="libgcc"/>
+			<rpm name="libgomp"/>
+			<rpm name="libstdc++"/>
+			<rpm name="libstdc++-devel"/>
+			<rpm name="libstdc++-static"/>
+		</arch>
+	</repo>
+</repos>

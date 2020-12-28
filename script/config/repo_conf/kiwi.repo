@@ -1,0 +1,5 @@
+[kiwi]
+name=kiwi
+baseurl=http://euleros-obs-repo.huawei.com:82/EulerOS:/V3R1:/KIWI/standard_aarch64/
+gpgcheck=0
+gpgkey=
