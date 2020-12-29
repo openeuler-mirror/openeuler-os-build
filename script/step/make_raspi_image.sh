@@ -181,7 +181,7 @@ make_img(){
     rootp=/dev/mapper/${loopX}p3
     LOG "bootp: " ${bootp} "rootp: " ${rootp}
     mkfs.vfat -n boot ${bootp}
-    mkswap ${swapp}
+    mkswap ${swapp} --pagesize 4096
     mkfs.ext4 ${rootp}
     mkdir -p ${root_mnt} ${boot_mnt}
     mount -t vfat -o uid=root,gid=root,umask=0000 ${bootp} ${boot_mnt}
