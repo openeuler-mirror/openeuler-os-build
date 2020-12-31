@@ -31,6 +31,7 @@ function get_epol_rpms_inchroot()
     RELEASE_DIR="${release_dir}/EPOL/$ARCH/Packages"
     RELEASE_SOURCE_DIR="${release_dir}/EPOL/source/Packages"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
+    sshcmd "${SSH_CMD}"
     SSH_CMD="mkdir -p ${RELEASE_SOURCE_DIR}"
     sshcmd "${SSH_CMD}"
     SSH_CMD="cd ${RELEASE_DIR} && wget -c -r -np -nd ${OBS_EPOL_REPO_URL}/${ARCH}/ && rm -rf ${ARCH} && rm -rf index.html*"
