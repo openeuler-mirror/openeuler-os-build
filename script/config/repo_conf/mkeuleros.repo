@@ -1,0 +1,5 @@
+[mkeuleros]
+name=mkeuleros
+baseurl=http://openeuler-obs-repo.huawei.com:82/openEuler:/20.03:/LTS:/SP1/standard_aarch64/
+enabled=1
+gpgcheck=0

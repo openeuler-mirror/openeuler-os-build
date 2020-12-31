@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<image schemaversion="6.2" name="IMAGE_NAME">
+    <description type="system">
+        <author>openEuler</author>
+        <contact>community@openeuler.org</contact>
+        <specification>openEuler V1.0 docker container</specification>
+    </description>
+    <preferences>
+        <type image="docker" container="test">
+            <machine>
+                <vmdisk/>
+                <vmnic interface="eth0" mode="veth"/>
+            </machine>
+        </type>
+        <version>1.0.0</version>
+        <packagemanager>yum</packagemanager>
+        <rpm-check-signatures>false</rpm-check-signatures>
+        <rpm-force>true</rpm-force>
+        <locale>en_US</locale>
+        <keytable>us.map.gz</keytable>
+        <hwclock>utc</hwclock>
+        <timezone>Asia/Beijing</timezone>
+    </preferences>
+
+    <!--obs_repo_here-->
+
+    <!--packages type="image">
+        <package name="coreutils"/>
+        <package name="iputils"/>
+        <package name="acl"/>
+        <package name="audit-libs"/>
+        <package name="basesystem"/>
+        <package name="bash"/>
+        <package name="binutils"/>
+        <package name="bzip2-libs"/>
+        <package name="ca-certificates"/>
+        <package name="chkconfig"/>
+        <package name="cpio"/>
+        <package name="cracklib"/>
+        <package name="cracklib-dicts"/>
+        <package name="cronie"/>
+        <package name="cronie-noanacron"/>
+        <package name="crontabs"/>
+        <package name="cryptsetup-libs"/>
+        <package name="curl"/>
+        <package name="cyrus-sasl-lib"/>
+        <package name="dbus"/>
+        <package name="dbus-libs"/>
+        <package name="device-mapper"/>
+        <package name="device-mapper-libs"/>
+        <package name="diffutils"/>
+        <package name="elfutils-libelf"/>
+        <package name="euleros-release"/>
+        <package name="expat"/>
+        <package name="expat-devel"/>
+        <package name="file"/>
+        <package name="file-libs"/>
+        <package name="filesystem"/>
+        <package name="findutils"/>
+        <package name="gawk"/>
+        <package name="gdbm"/>
+        <package name="glib2"/>
+        <package name="glibc"/>
+        <package name="glibc-common"/>
+        <package name="gmp"/>
+        <package name="gnupg2"/>
+        <package name="gpgme"/>
+        <package name="grep"/>
+        <package name="groff-base"/>
+        <package name="gzip"/>
+        <package name="hardlink"/>
+        <package name="hostname"/>
+        <package name="info"/>
+        <package name="iproute"/>
+        <package name="iptables"/>
+        <package name="keyutils-libs"/>
+        <package name="kmod"/>
+        <package name="kmod-libs"/>
+        <package name="kpartx"/>
+        <package name="krb5-libs"/>
+        <package name="less"/>
+        <package name="libacl"/>
+        <package name="libassuan"/>
+        <package name="libattr"/>
+        <package name="libblkid"/>
+        <package name="libcap"/>
+        <package name="libcap-ng"/>
+        <package name="libcom_err"/>
+        <package name="libcurl"/>
+        <package name="libdb"/>
+        <package name="libdb-utils"/>
+        <package name="libffi"/>
+        <package name="libgcc"/>
+        <package name="libgcrypt"/>
+        <package name="libgpg-error"/>
+        <package name="libidn"/>
+        <package name="libmnl"/>
+        <package name="libmount"/>
+        <package name="libnetfilter_conntrack"/>
+        <package name="libnfnetlink"/>
+        <package name="libpwquality"/>
+        <package name="libselinux"/>
+        <package name="libsemanage"/>
+        <package name="libsepol"/>
+        <package name="libssh2"/>
+        <package name="libstdc++"/>
+        <package name="libtasn1"/>
+        <package name="libuser"/>
+        <package name="libutempter"/>
+        <package name="libuuid"/>
+        <package name="libverto"/>
+        <package name="libxml2"/>
+        <package name="lua"/>
+        <package name="ncurses"/>
+        <package name="ncurses-base"/>
+        <package name="ncurses-libs"/>
+        <package name="nspr"/>
+        <package name="nss"/>
+        <package name="nss-softokn"/>
+        <package name="nss-softokn-freebl"/>
+        <package name="nss-sysinit"/>
+        <package name="nss-tools"/>
+        <package name="nss-util"/>
+        <package name="openldap"/>
+        <package name="openssl-libs"/>
+        <package name="p11-kit"/>
+        <package name="p11-kit-trust"/>
+        <package name="pam"/>
+        <package name="passwd"/>
+        <package name="pcre"/>
+        <package name="pinentry"/>
+        <package name="pkgconfig"/>
+        <package name="popt"/>
+        <package name="procps-ng"/>
+        <package name="pth"/>
+        <package name="pygpgme"/>
+        <package name="pyliblzma"/>
+        <package name="python"/>
+        <package name="python-iniparse"/>
+        <package name="python-libs"/>
+        <package name="python-pycurl"/>
+        <package name="python-urlgrabber"/>
+        <package name="pyxattr"/>
+        <package name="qrencode-libs"/>
+        <package name="readline"/>
+        <package name="rpm"/>
+        <package name="rpm-build-libs"/>
+        <package name="rpm-libs"/>
+        <package name="rpm-python"/>
+        <package name="security-tool"/>
+        <package name="sed"/>
+        <package name="setup"/>
+        <package name="shadow-utils"/>
+        <package name="shared-mime-info"/>
+        <package name="sqlite"/>
+        <package name="sudo"/>
+        <package name="systemd"/>
+        <package name="systemd-libs"/>
+        <package name="tar"/>
+        <package name="tzdata"/>
+        <package name="ustr"/>
+        <package name="util-linux"/>
+        <package name="vim-minimal"/>
+        <package name="which"/>
+        <package name="xz"/>
+        <package name="xz-libs"/>
+        <package name="yum"/>
+        <package name="yum-metadata-parser"/>
+        <package name="zlib"/>
+        <package name="net-tools"/>
+	    <package name="yum-metadata-parser"/>
+    <packages-->
+    <packages type="image">
+        <package name="basesystem"/>
+        <package name="bash"/>
+	<package name="yum"/>
+	<package name="NetworkManager"/>
+        <package name="net-tools"/>        
+        <package name="coreutils"/>
+        <package name="openEuler-release"/>
+        <package name="rootfiles"/>
+        <!--<package name="security-tool"/> -->
+        <package name="procps-ng"/>
+	<package name="systemd"/>
+        <package name="vim-minimal"/>
+        <package name="iproute"/>
+	<package name="which"/>
+    </packages>
+    <packages type="bootstrap">
+        <package name="filesystem"/>
+        <!--package name="glibc-common"-->
+        <!--package name="kmod"-->
+    </packages>
+</image>

@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<domain xmlns:ns0="http://libvirt.org/schemas/domain/qemu/1.0" type="kvm">
+  <name>VM_NAME</name>
+  <memory unit="KiB">14049280</memory>
+  <currentMemory unit="KiB">14049280</currentMemory>
+  <vcpu placement="static">4</vcpu>
+  <resource>
+    <partition>/machine</partition>
+  </resource>
+  <os>
+    <type arch="aarch64" machine="virt-2.8">hvm</type>
+    <loader readonly="yes" type="pflash">/usr/share/edk2/aarch64/QEMU_EFI-pflash.raw</loader>
+    <nvram template="/usr/share/edk2/aarch64/vars-template-pflash.raw">/usr/share/edk2/aarch64/euler.fd</nvram>
+    <boot dev="hd" />
+    <boot dev="network" />
+  </os>
+  <features>
+    <gic version="3" />
+  </features>
+  <cpu mode="host-passthrough" />
+  <clock offset="utc" />
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-kvm</emulator>
+    <disk device="disk" type="file">
+      <driver cache="none" io="native" name="qemu" type="qcow2" />
+      <source file="/VM_PATH/EulerOS-V3.0SP1.aarch64.qcow2" />
+      <backingStore />
+      <target bus="scsi" dev="sda" />
+    </disk>
+    <disk device="cdrom" type="file">
+      <driver cache="none" io="native" name="qemu" type="raw" />
+      <source file="/VM_PATH/EulerOS-V3.0SP1-aarch64-dvd.iso" />
+      <backingStore />
+      <target bus="scsi" dev="sdb" />
+      <readonly />
+      <alias name="scsi0-0-0-1" />
+      <address bus="0" controller="0" target="0" type="drive" unit="1" />
+    </disk>
+    <controller index="0" model="ehci" type="usb">
+      <alias name="usb" />
+      <address bus="0x02" domain="0x0000" function="0x0" slot="0x01" type="pci" />
+    </controller>
+    <controller index="0" model="virtio-scsi" type="scsi">
+      <alias name="scsi0" />
+      <address bus="0x02" domain="0x0000" function="0x0" slot="0x03" type="pci" />
+    </controller>
+    <controller index="0" model="pcie-root" type="pci">
+      <alias name="pcie.0" />
+    </controller>
+    <controller index="1" model="dmi-to-pci-bridge" type="pci">
+      <model name="i82801b11-bridge" />
+      <alias name="pci.1" />
+      <address bus="0x00" domain="0x0000" function="0x0" slot="0x01" type="pci" />
+    </controller>
+    <controller index="2" model="pci-bridge" type="pci">
+      <model name="pci-bridge" />
+      <target chassisNr="2" />
+      <alias name="pci.2" />
+      <address bus="0x01" domain="0x0000" function="0x0" slot="0x00" type="pci" />
+    </controller>
+    <interface type="bridge">
+      <source bridge="br-ci" />
+      <target dev="vnet1" />
+      <model type="virtio" />
+      <alias name="net0" />
+      <address bus="0x02" domain="0x0000" function="0x0" slot="0x02" type="pci" />
+    </interface>
+    <serial type="pty">
+      <source path="/dev/pts/1" />
+      <target port="0" />
+      <alias name="serial0" />
+    </serial>
+    <console tty="/dev/pts/1" type="pty">
+      <source path="/dev/pts/1" />
+      <target port="0" type="serial" />
+      <alias name="serial0" />
+    </console>
+    <input bus="usb" type="tablet">
+      <alias name="input0" />
+    </input>
+    <input bus="usb" type="keyboard">
+      <alias name="input1" />
+    </input>
+    <graphics autoport="yes" listen="0.0.0.0" port="5902" type="vnc">
+      <listen address="0.0.0.0" type="address" />
+    </graphics>
+    <video>
+      <model heads="1" primary="yes" type="virtio" />
+      <alias name="video0" />
+      <address bus="0x02" domain="0x0000" function="0x0" slot="0x04" type="pci" />
+    </video>
+  </devices>
+  <seclabel model="none" type="none" />
+  <seclabel model="dac" relabel="yes" type="dynamic">
+    <label>+0:+0</label>
+    <imagelabel>+0:+0</imagelabel>
+  </seclabel>
+  <ns0:commandline>
+    <ns0:arg value="-consolelog" />
+    <ns0:arg value="path=/LOG_PATH" />
+  </ns0:commandline>
+</domain>

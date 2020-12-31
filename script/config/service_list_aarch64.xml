@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<projects>
+    <project name="openEuler:20.03:LTS:SP1" repo="standard_aarch64" arch="aarch64" run_all="yes"></project>
+</projects>

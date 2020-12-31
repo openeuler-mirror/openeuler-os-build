@@ -1,0 +1,51 @@
+#!/usr/bin/env
+
+VERSION_C="openeuler"
+TAR_NAME=""
+VERSION_B=""
+PRODUCT="PANGEA"
+ARCH="ARM64"
+TIME=""
+
+####RELEASE##########
+RELEASE_USER="root"
+RELEASE_PASSWD="$dogshengpwd82"
+
+CI_PROJECT="openeuler_ARM64"
+HTTP_RELEASE_DIR="http://${RELEASE_IP}/internal_use_only/EulerOS/${VERSION_C}/${CI_PROJECT}"
+SSH_RELEASE_DIR="/repo/openeuler/dailybuild/internal_use_only/EulerOS/${VERSION_C}/${CI_PROJECT}"
+RELEASE_FILE="release"
+RELEASE_CONFIG_FILE="${SSH_RELEASE_DIR}/config_${PRODUCT}"
+
+
+############################for pxe#####################
+PXE_SERVER_IP="10.175.124.178"
+PXE_SERVER_USER="root"
+PXE_SERVER_PASSWD="huawei1abc"
+pxe_tftpboot="/tftpboot"
+pxe_config_dir="${pxe_tftpboot}/pxelinux.cfg"
+pxe_boot_dir="${pxe_tftpboot}/boot_image/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}"
+pxe_repo_dir="/srv/ftp/auto_version/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}"
+
+HTTP_TESTCASE_DIR="http://${PXE_SERVER_IP}/EulerOS_test/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/testcase_bin"
+HTTP_TESTFRAME_DIR="http://${PXE_SERVER_IP}/EulerOS_test/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/testframe_bin"
+SSH_TESTCASE_DIR="/repo/openeuler/dailybuild/EulerOS_test/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/testcase_bin"
+SSH_TESTFRAME_DIR="/repo/openeuler/dailybuild/EulerOS_test/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/testframe_bin"
+
+pxe_config_string="LABEL ${PRODUCT}-${ARCH}-${VERSION_B}\n\
+kernel /boot_image/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/lastest/boot/linux\n\
+append initrd=/boot_image/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/lastest/boot/initrd install_mode=install install_media=pxe install_repo=ftp://${PXE_SERVER_IP}/auto_version/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}/lastest/?u=anonymous&p= net_cfg=eth0,,dhcp,,  log_level=7 install_log=nfs://${PXE_SERVER_IP}/srv/nfs/install_log/xxx_ip disk_scan_timeout=30"
+
+
+#0:not start, 1:doing, 2:success, 3:failed
+#BUILD_RESULT
+BUILD_STATUS=1
+BUILD_build_and_wait=0
+BUILD_make_tar=0
+BUILD_make_euleros_certdb=0
+BUILD_make_compile_tools=0
+BUILD_make_compile_env_cross=0
+
+#TEST_RESULT
+AT_STATUS=0
+AT_run_testcase=0

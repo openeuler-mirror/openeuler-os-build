@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<repos>
+    <repo name="GENERAL" url="http://obsserver_ip/EulerOS:/V3R1:/GENERAL:/Kernel/standard_aarch64/">
+        <arch type="aarch64">
+            <rpm name="kernel-source"/>
+        </arch>
+    </repo>
+</repos>
+

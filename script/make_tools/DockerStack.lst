@@ -1,0 +1,11 @@
+docker-engine.aarch64
+docker-engine-selinux.noarch
+authz.aarch64
+docker-tools.aarch64
+container-resourced.aarch64
+elara.aarch64
+docker-monitor.aarch64
+docker-toolkit.aarch64
+lxcfs.aarch64
+docker-lxcfs-toolkit.aarch64
+crid.aarch64

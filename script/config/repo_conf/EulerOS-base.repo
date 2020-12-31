@@ -1,0 +1,5 @@
+[EulerOS-base]
+name=EulerOS-base
+baseurl=http://euleros-obs-repo.huawei.com:82/EulerOS:/V3R1:/STANDARD/standard_aarch64/
+enabled=1
+gpgcheck=0
