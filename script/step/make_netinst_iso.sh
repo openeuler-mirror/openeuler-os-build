@@ -85,27 +85,22 @@ function make_netinst_iso_inchroot()
     if [ $? -ne 0 ]; then
         log_error "Failed in chmod_http"
     fi
-    log_info "Release iso to http://${RELEASE_SERVER_IP}:82/${CUSTOM_DIR}/"
 
     release_file="release_netinst"
-    SSH_CMD="echo http://${RELEASE_SERVER_IP}:82/${CUSTOM_DIR}/${TGZ_NAME} > ${HTTP_DIR}/${PRE_VERSION}/${VERSION}/${release_file}; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${VERSION}/${release_file}"
+    sub_dir=`echo ${RELEASE_DIR#*/dailybuild}`
+    SSH_CMD="echo ${RELEASE_HTTP_URL}/${sub_dir}/${TGZ_NAME} > ${HTTP_DIR}/${PRE_VERSION}/${VERSION}/${release_file}; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${VERSION}/${release_file}"
     sshcmd "${SSH_CMD}"
-    log_info "echo http://${RELEASE_SERVER_IP}:82/${CUSTOM_DIR}/${TGZ_NAME} > ${release_file}"
 
-    if [ "${ISCI}" -eq "0" ]; then
-        return 0
-    fi
+    DATE=`echo ${release_dir#*openeuler-}`
 
-    mkdir -pv "${WORK_DIR}"output
-    html="${WORK_DIR}"output/release_netinst_iso.html
-    cat /dev/null > "${html}"
+    html="release_netinst_iso.html"
     echo "<html><body>" >> "${html}"
     echo '<div style="border: 1px solid;background-color:PowderBlue;text-align:;height:200px;width:100%">' >> "${html}"
     echo "<h1>The newest ${VERSION} Release</h1>" >> "${html}"
-    echo "The release is created on $(date)" >> "${html}"
-    echo "<h3>Download on windows: <a href=\"http://${RELEASE_SERVER_IP}/${CUSTOM_DIR}/${TGZ_NAME}\" target='_blank'>${TGZ_NAME}</a><br />" >> "${html}"
-    echo "<p>Download on linux: run \"wget http://${RELEASE_SERVER_IP}/${CUSTOM_DIR}/${TGZ_NAME}\"</p>" >> "${html}"
-    echo "<p>View the history version, please go to : <a href=\"http://${RELEASE_SERVER_IP}/${PRE_VERSION}/${VERSION}\" target='_blank'>http://${RELEASE_SERVER_IP}/${PRE_VERSION}/${VERSION}/</a></p></h3></div>" >> "${html}"
+    echo "The release is created on ${DATE}" >> "${html}"
+    echo "<h3>Download on windows: <a href=\"${RELEASE_HTTP_URL}/${sub_dir}/${TGZ_NAME}\" target='_blank'>${TGZ_NAME}</a><br />" >> "${html}"
+    echo "<p>Download on linux: run \"wget ${RELEASE_HTTP_URL}/${sub_dir}/${TGZ_NAME}\"</p>" >> "${html}"
+    echo "<p>View the history version, please go to : <a href=\"${RELEASE_HTTP_URL}/${RELEASE_VERSION_DIR}/\" target='_blank'>${RELEASE_HTTP_URL}/${RELEASE_VERSION_DIR}/</a></p></h3></div>" >> "${html}"
     echo "<br />" >> "${html}"
     echo "</div></body></html>" >> "${html}"
     set +e

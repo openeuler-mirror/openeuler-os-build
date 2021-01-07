@@ -12,6 +12,7 @@ export OBS_UI_IP="172.16.1.81"
 export OBS_SERVER_IP="172.16.1.95"
 export RELEASE_SERVER_IP="121.36.84.172"
 export ARCH=$(uname -m)
+export RELEASE_HTTP_URL="http://121.36.84.172/dailybuild"
 
 SUB_STANDARD_REPO_URL="$(echo ${OBS_STANDARD_PROJECT//:/:\/})"
 SUB_EPOL_REPO_URL="$(echo ${OBS_EPOL_PROJECT//:/:\/})"
