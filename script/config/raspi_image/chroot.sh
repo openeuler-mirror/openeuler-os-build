@@ -14,3 +14,8 @@ fi
 if [ -f /etc/rc.d/rc.local ]; then
     chmod +x /etc/rc.d/rc.local
 fi
+cd /etc/rc.d/init.d
+chmod +x extend-root.sh
+chkconfig --add extend-root.sh
+chkconfig extend-root.sh on
+cd -
