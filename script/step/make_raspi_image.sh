@@ -134,7 +134,7 @@ make_rootfs(){
     #if [ ! -d $rootfs_dir/etc/sysconfig/network-scripts ]; then
     #    mkdir -p $rootfs_dir/etc/sysconfig/network-scripts
     #fi
-    cp ${euler_dir}/ifup-eth0 $rootfs_dir/etc/sysconfig/network-scripts/ifup-eth0
+    cp ${euler_dir}/ifcfg-eth0 $rootfs_dir/etc/sysconfig/network-scripts/ifcfg-eth0
     mkdir -p ${rootfs_dir}/usr/bin ${rootfs_dir}/lib/udev/rules.d ${rootfs_dir}/lib/systemd/system
     if [ -d ${rootfs_dir}/usr/share/licenses/raspi ]; then
         mkdir -p ${rootfs_dir}/usr/share/licenses/raspi
