@@ -98,6 +98,7 @@ source "${BUILD_SCRIPT_DIR}"/step/release_dir.sh
 #source "${BUILD_SCRIPT_DIR}"/step/createrepo.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_docker_image.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_raspi_image.sh
+source "${BUILD_SCRIPT_DIR}"/step/make_microvm_image.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_gcov.sh
 source "${BUILD_SCRIPT_DIR}"/step/merge_release_html.sh
 #source "${BUILD_SCRIPT_DIR}"/step/build_and_wait.sh

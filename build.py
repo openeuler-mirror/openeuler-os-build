@@ -13,12 +13,12 @@ from utils import rm, trace_execute
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 PARAMS = ['all', 'set_release_dir', 'update_release_info', 'build_and_wait', 'make_tar', 'make_hmi',
-        'make_iso', 'make_docker_image', 'make_raspi_image', 'make_compile_env_cross',
-        'make_compile_env_cross_storage', 'make_iso_debug', 'make_livecd', 'make_compile_env', 
-        'make_compile_env_storage', 'make_euleros_certdb', 'make_vm_qcow2', 'make_compile_tools', 'make_images_slim',
-        'make_tools_lib_storage', 'make_container_tools', 'make_tools_debug_tools', 'make_upgrade_patch',
-        'make_tools_dockertools', 'make_other_tools', 'upload_to_cmc', 'make_upload_cmc_image', 'make_iso_everything', 
-        'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms']
+          'make_iso', 'make_docker_image', 'make_raspi_image', 'make_microvm_image', 'make_compile_env_cross',
+          'make_compile_env_cross_storage', 'make_iso_debug', 'make_livecd', 'make_compile_env',
+          'make_compile_env_storage', 'make_euleros_certdb', 'make_vm_qcow2', 'make_compile_tools', 'make_images_slim',
+          'make_tools_lib_storage', 'make_container_tools', 'make_tools_debug_tools', 'make_upgrade_patch',
+          'make_tools_dockertools', 'make_other_tools', 'upload_to_cmc', 'make_upload_cmc_image', 'make_iso_everything',
+          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms']
 
 
 class Build(object):
@@ -44,7 +44,8 @@ class Build(object):
         """
         self.local_project_path = os.path.join(CUR_DIR, "..", "..")
         self.local_dist_dir = os.path.join(CUR_DIR, "..", "output")
-        self.local_build_shell_path = os.path.join(CUR_DIR, "script", "make_version.sh")
+        self.local_build_shell_path = os.path.join(
+            CUR_DIR, "script", "make_version.sh")
         return True
 
     def prepare_env(self, logger):
@@ -156,14 +157,19 @@ def usage():
 if __name__ == "__main__":
     import argparse
     par = argparse.ArgumentParser()
-    par.add_argument("-i", "--step_info", help="what you want to do", required=True)
-    par.add_argument("-s", "--obs_standard_prj", help="obs standard project", required=True)
-    par.add_argument("-ep", "--obs_epol_prj", help="obs epol project", required=True)
-    par.add_argument("-ex", "--obs_extras_prj", help="obs extras project", required=True)
+    par.add_argument("-i", "--step_info",
+                     help="what you want to do", required=True)
+    par.add_argument("-s", "--obs_standard_prj",
+                     help="obs standard project", required=True)
+    par.add_argument("-ep", "--obs_epol_prj",
+                     help="obs epol project", required=True)
+    par.add_argument("-ex", "--obs_extras_prj",
+                     help="obs extras project", required=True)
     args = par.parse_args()
 
     build = Build()
-    build.set_obs_project(args.obs_standard_prj, args.obs_epol_prj, args.obs_extras_prj)
+    build.set_obs_project(args.obs_standard_prj,
+                          args.obs_epol_prj, args.obs_extras_prj)
     one_step = args.step_info
     if one_step == "clean":
         ret = build.clean()
