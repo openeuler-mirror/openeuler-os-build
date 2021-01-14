@@ -29,6 +29,7 @@ export RELEASE_ARCH_DIR="openEuler_${ARCH}"
 export CONTAINER_NAME=$(echo ${RELEASE_VERSION_DIR} | tr A-Z a-z)
 export VM_IMAGE_NAME="${RELEASE_VERSION_DIR}-${ARCH}.qcow2"
 export RASPI_IMAGE_NAME="${RELEASE_VERSION_DIR}-raspi-${ARCH}.img"
+export MICROVM_IMAGE_NAME="${RELEASE_VERSION_DIR}-microvm-${ARCH}.img"
 
 export PRODUCTS=${OS_NAME}
 
