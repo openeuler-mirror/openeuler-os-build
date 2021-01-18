@@ -56,7 +56,8 @@ function log_debug()
 ######################
 function sshcmd()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -u "${USER}" -p "${PASSWD}" -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -u "${USER}" -p "${PASSWD}" -t 120 -n 3
 }
 
 ######################
@@ -67,7 +68,8 @@ function sshcmd()
 ######################
 function sshscp()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
 }
 
 ######################
@@ -78,7 +80,8 @@ function sshscp()
 ######################
 function sshscp_from()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "${RELEASE_SERVER_IP}:$1" -d "$2" -r -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -s "${RELEASE_SERVER_IP}:$1" -d "$2" -r -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "${RELEASE_SERVER_IP}:$1" -d "$2" -r -t 120 -n 3
 }
 
 ######################
@@ -89,7 +92,8 @@ function sshscp_from()
 ######################
 function sshcmd_arm()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_ROOT_PATH}" -u "${USER}" -p "${PASSWD}" -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_ROOT_PATH}" -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_ROOT_PATH}" -u "${USER}" -p "${PASSWD}" -t 120 -n 3
 }
 
 ######################
@@ -100,7 +104,8 @@ function sshcmd_arm()
 ######################
 function sshscp_arm()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "$1" -d "${RELEASE_SERVER_IP}:$2" -r -t 120 -n 3
 }
 
 ######################
@@ -111,7 +116,8 @@ function sshscp_arm()
 ######################
 function sshscp_from_arm()
 {
-    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "${RELEASE_ROOT_PATH}:$1" -d "$2" -r -t 120 -n 3
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -s "${RELEASE_ROOT_PATH}:$1" -d "$2" -r -t 120 -n 3
+    #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshscp.sh" -p "${PASSWD}" -s "${RELEASE_ROOT_PATH}:$1" -d "$2" -r -t 120 -n 3
 }
 ######################
 # 安全运行相关命令

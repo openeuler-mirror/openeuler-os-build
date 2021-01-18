@@ -30,27 +30,21 @@ function make_debug_everything_inchroot()
 
     yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
     yum clean all -c "${yum_conf}"
-    if rpm -q mkeuleros &> /dev/null; then
-       yum remove mkeuleros -y
+    if rpm -q oemaker &> /dev/null; then
+       yum remove oemaker -y
     fi
     if rpm -q lorax &> /dev/null; then
        yum remove lorax -y
     fi
 
-    yum install mkeuleros lorax -y -c "${yum_conf}"
-    cd /opt/mkeuleros
-
-    if [ "${ARCH}" = "x86_64" ]; then
-        mkeuleros_conf="config/standard/standard.conf"
-    elif [ "${ARCH}" = "aarch64" ]; then
-        mkeuleros_conf="config/aarch64/standard.conf"
-    fi
+    yum install oemaker lorax -y -c "${yum_conf}"
+    cd /opt/oemaker
 
     set +e
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x mkeuleros.sh -f "${mkeuleros_conf}" -n "${OS_NAME}" -v "${OS_VERSION}" -s "SP1" -a "${ARCH}" -r "${OBS_STANDARD_REPO_URL}" -i 1
+        bash -x oemaker -t everything_debug -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
@@ -84,8 +78,11 @@ function make_debug_everything_inchroot()
     sshcmd "${SSH_CMD}"
     sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM}" "${RELEASE_DIR}"
     set +e
-    SSH_CMD="losetup -a | grep ${TGZ_NAME} | grep ${OS_VERSION} | awk -F ':' '{print \$1}' | xargs umount"
-    sshcmd "${SSH_CMD}"
+    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep OS/${ARCH} | awk '{print $3}')
+    for mp in $ret
+    do
+        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} umount $mp)
+    done
     SSH_CMD="mount -t iso9660 -o loop ${RELEASE_DIR}/${TGZ_NAME} ${MOUNT_DIR}"
     sshcmd "${SSH_CMD}"
     set -e

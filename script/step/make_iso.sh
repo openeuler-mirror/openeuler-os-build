@@ -28,27 +28,21 @@ function make_iso_inchroot()
     TIME=${TIME#"${version}"-}
     yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
     yum clean all -c "${yum_conf}"
-    if rpm -q mkeuleros &> /dev/null; then
-        yum remove mkeuleros -y
+    if rpm -q oemaker &> /dev/null; then
+        yum remove oemaker -y
     fi
     if rpm -q lorax &> /dev/null; then
         yum remove lorax -y
     fi
-
-    yum install mkeuleros lorax -y -c "${yum_conf}"
-    cd /opt/mkeuleros
-
-    if [ "${ARCH}" = "x86_64" ]; then
-        mkeuleros_conf="config/standard/standard.conf"
-    elif [ "${ARCH}" = "aarch64" ]; then
-        mkeuleros_conf="config/aarch64/standard.conf"
-    fi
+    yum install oemaker lorax -y -c "${yum_conf}"
+    cd /opt/oemaker
 
     set +e
     num=0
+    set +u
     while [ "${num}" -lt 3 ]
     do
-        bash -x mkeuleros.sh -f "${mkeuleros_conf}" -n "${OS_NAME}" -v "${OS_VERSION}" -s "SP1" -a "${ARCH}" -r "${OBS_STANDARD_REPO_URL}"
+        bash -x oemaker -t standard -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
@@ -84,11 +78,13 @@ function make_iso_inchroot()
     sshcmd "${SSH_CMD}"
     sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM} ${iso_rpmlist}" "${RELEASE_DIR}"
     set +e
-    SSH_CMD="losetup -a | grep ${TGZ_NAME} | grep ${OS_VERSION} | awk -F ':' '{print \$1}' | xargs umount"
-    sshcmd "${SSH_CMD}"
+    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep OS/${ARCH} | awk '{print $3}')
+    for mp in $ret
+    do
+        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} umount $mp)
+    done
     SSH_CMD="mount -t iso9660 -o loop ${RELEASE_DIR}/${TGZ_NAME} ${MOUNT_DIR}"
     sshcmd "${SSH_CMD}"
-    set -e
     [ -n "${iso_rpmlist}" ] && rm -rf "${iso_rpmlist}"
         
     release_file="release_iso"
@@ -106,7 +102,6 @@ function make_iso_inchroot()
     echo "<p>View the history version, please go to : <a href=\"${RELEASE_HTTP_URL}/${RELEASE_VERSION_DIR}/\" target='_blank'>${RELEASE_HTTP_URL}/${RELEASE_VERSION_DIR}/</a></p></h3></div>" >> "${html}"
     echo "<br />" >> "${html}"
     echo "</div></body></html>" >> "${html}"
-    set +e
     sshscp "${html}" "${HTTP_DIR}/${PRE_VERSION}/${VERSION}/"
     SSH_CMD="chmod 755 ${HTTP_DIR}/${PRE_VERSION}/${VERSION}/${html##*/}"
     sshcmd "${SSH_CMD}"
