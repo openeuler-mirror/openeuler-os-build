@@ -204,20 +204,11 @@ make_img(){
     cp ${euler_dir}/config.txt ${boot_mnt}/
     echo "console=serial0,115200 console=tty1 root=/dev/mmcblk0p3 rootfstype=ext4 elevator=deadline rootwait" > ${boot_mnt}/cmdline.txt
 
-    if [ -f ${tmp_dir}/rootfs.tar ]; then
-        rm ${tmp_dir}/rootfs.tar
-    fi
-    pushd ${rootfs_dir}
-    rm -rf boot
-    tar cpf ${tmp_dir}/rootfs.tar .
-    popd
-    pushd ${root_mnt}
-    tar xpf ${tmp_dir}/rootfs.tar -C .
-    popd
+    rm -rf ${rootfs_dir}/boot
+    rsync -avHAXq ${rootfs_dir}/* ${root_mnt}
     sync
     sleep 10
     LOSETUP_D_IMG
-    rm ${tmp_dir}/rootfs.tar
     rm -rf ${rootfs_dir}
     losetup -D
     pushd ${img_dir}
