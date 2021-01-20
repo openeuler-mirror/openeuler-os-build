@@ -2,6 +2,8 @@
 
 set -e
 arch="$(uname -m)"
+kernel_config="kernel_config_5.10_${arch}"
+yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
 
 ERROR(){
     echo `date` - ERROR, $* | tee -a ${log_dir}/${builddate}.log
@@ -25,7 +27,7 @@ CP_CHROOT_PACKAGES(){
     set -e
 }
 
-prepare(){
+prepare_rootfs(){
     if [ ! -d ${tmp_dir} ]; then
         mkdir -p ${tmp_dir}
     else
@@ -37,7 +39,7 @@ prepare(){
     if [ ! -d ${log_dir} ]; then
         mkdir -p ${log_dir}
     fi
-    LOG "prepare begin..."
+    LOG "prepare rootfs begin..."
 
     if [ -d ${rootfs_dir} ]; then
         rm -rf ${rootfs_dir}
@@ -49,7 +51,25 @@ prepare(){
     set +e
     os_release_name=${OS_NAME}-release
     set -e
-    LOG "prepare end."
+    LOG "prepare rootfs end."
+}
+
+prepare_kernel(){
+    if [ ! -d ${tmp_dir} ]; then
+        mkdir -p ${tmp_dir}
+    else
+        rm -rf ${tmp_dir}/*
+    fi
+
+    kernel_file=${img_dir}/${MICROVM_KERNEL_NAME}
+
+    LOG "prepare vmlinux kernel begin..."
+    yum clean all -c "${yum_conf}"
+    yum makecache -c "${yum_conf}"
+
+    yum install make gcc bison flex openssl-devel elfutils-devel bc -y -c "${yum_conf}"
+
+    LOG "prepare vmlinux kernel end."
 }
 
 make_rootfs(){
@@ -61,7 +81,7 @@ make_rootfs(){
     mkdir -p ${rootfs_dir}
 
     for dir in dev home mnt proc run srv sys boot etc media opt root tmp var usr
-    do 
+    do
         mkdir -m 0755 -p ${rootfs_dir}/${dir}
     done
 
@@ -95,7 +115,7 @@ make_img(){
     if [ -f ${tmp_dir}/rootfs.tar ]; then
         rm ${tmp_dir}/rootfs.tar
     fi
-    
+
     pushd ${rootfs_dir}
     tar cpf ${tmp_dir}/rootfs.tar .
     popd
@@ -118,6 +138,30 @@ make_img(){
     LOG "write ${img_file} done."
     LOG "make ${img_file} end."
     sshscp "${img_file} ${img_file}.sha256sum ${img_file}.xz ${img_file}.xz.sha256sum " "${RELEASE_DIR}"
+}
+
+make_kernel(){
+    LOG "make ${kernel_file} begin..."
+
+    yum install kernel-source -y -c "${yum_conf}"
+    kernel_src_name=$(rpm -qa | grep kernel-source)
+    kernel_src_version=${kernel_src_name: 13}
+
+    pushd /usr/src/linux${kernel_src_version}
+    cp ${microvm_dir}/${kernel_config} .config
+    make -j
+    objcopy -O binary vmlinux ${kernel_file}
+    popd
+
+    pushd ${img_dir}
+    if [ -f ${kernel_file} ]; then
+        sha256sum $(basename ${kernel_file}) > ${kernel_file}.sha256sum
+        LOG "made sum file for ${kernel_file}"
+    fi
+    popd
+
+    LOG "make ${kernel_file} end."
+    sshscp "${kernel_file} ${kernel_file}.sha256sum " "${RELEASE_DIR}"
 }
 
 function make_microvm_image()
@@ -164,7 +208,10 @@ function make_microvm_image_inchroot()
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"
 
-    prepare
+    prepare_rootfs
     make_rootfs
     make_img
+
+    prepare_kernel
+    make_kernel
 }
