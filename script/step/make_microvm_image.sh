@@ -72,7 +72,7 @@ prepare_kernel(){
     LOG "prepare vmlinux kernel end."
 }
 
-make_rootfs(){
+make_micro_rootfs(){
     LOG "make rootfs for micro_vm begin..."
     if [[ -d ${rootfs_dir} ]]; then
         UMOUNT_ALL
@@ -100,7 +100,7 @@ make_rootfs(){
     LOG "make rootfs for micro_vm end."
 }
 
-make_img(){
+make_micro_img(){
     LOG "make ${img_file} begin..."
     device=""
     size=`du -sh --block-size=1MiB ${rootfs_dir} | cut -f 1 | xargs`
@@ -140,7 +140,7 @@ make_img(){
     sshscp "${img_file} ${img_file}.sha256sum ${img_file}.xz ${img_file}.xz.sha256sum " "${RELEASE_DIR}"
 }
 
-make_kernel(){
+make_micro_kernel(){
     LOG "make ${kernel_file} begin..."
 
     yum install kernel-source -y -c "${yum_conf}"
@@ -209,9 +209,9 @@ function make_microvm_image_inchroot()
     sshcmd "${SSH_CMD}"
 
     prepare_rootfs
-    make_rootfs
-    make_img
+    make_micro_rootfs
+    make_micro_img
 
     prepare_kernel
-    make_kernel
+    make_micro_kernel
 }
