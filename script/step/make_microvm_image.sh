@@ -149,7 +149,15 @@ make_micro_kernel(){
 
     pushd /usr/src/linux${kernel_src_version}
     cp ${microvm_dir}/${kernel_config} .config
-    make -j
+    if [ ${arch} == "x86_64" ]; then
+        make ARCH=x86_64 -j
+    elif [ ${arch} == "aarch64" ]; then
+        make ARCH=arm64 -j
+    else
+        LOG "${arch} is not supported yet."
+        return 0
+    fi
+
     objcopy -O binary vmlinux ${kernel_file}
     popd
 
