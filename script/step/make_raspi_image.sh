@@ -134,7 +134,7 @@ make_rootfs(){
     #if [ ! -d $rootfs_dir/etc/sysconfig/network-scripts ]; then
     #    mkdir -p $rootfs_dir/etc/sysconfig/network-scripts
     #fi
-    cp ${euler_dir}/ifup-eth0 $rootfs_dir/etc/sysconfig/network-scripts/ifup-eth0
+    cp ${euler_dir}/ifcfg-eth0 $rootfs_dir/etc/sysconfig/network-scripts/ifcfg-eth0
     mkdir -p ${rootfs_dir}/usr/bin ${rootfs_dir}/lib/udev/rules.d ${rootfs_dir}/lib/systemd/system
     if [ -d ${rootfs_dir}/usr/share/licenses/raspi ]; then
         mkdir -p ${rootfs_dir}/usr/share/licenses/raspi
@@ -143,6 +143,10 @@ make_rootfs(){
     cp ${euler_dir}/LICENCE.* ${rootfs_dir}/usr/share/licenses/raspi/
     cp ${euler_dir}/chroot.sh ${rootfs_dir}/chroot.sh
     chmod +x ${rootfs_dir}/chroot.sh
+    if [ ! -d ${rootfs_dir}/etc/rc.d/init.d ]; then
+        mkdir -p ${rootfs_dir}/etc/rc.d/init.d
+    fi
+    cp ${euler_dir}/extend-root.sh ${rootfs_dir}/etc/rc.d/init.d/extend-root.sh
     mount --bind /dev ${rootfs_dir}/dev
     mount -t proc /proc ${rootfs_dir}/proc
     mount -t sysfs /sys ${rootfs_dir}/sys
@@ -181,7 +185,7 @@ make_img(){
     rootp=/dev/mapper/${loopX}p3
     LOG "bootp: " ${bootp} "rootp: " ${rootp}
     mkfs.vfat -n boot ${bootp}
-    mkswap ${swapp}
+    mkswap ${swapp} --pagesize 4096
     mkfs.ext4 ${rootp}
     mkdir -p ${root_mnt} ${boot_mnt}
     mount -t vfat -o uid=root,gid=root,umask=0000 ${bootp} ${boot_mnt}
@@ -200,20 +204,11 @@ make_img(){
     cp ${euler_dir}/config.txt ${boot_mnt}/
     echo "console=serial0,115200 console=tty1 root=/dev/mmcblk0p3 rootfstype=ext4 elevator=deadline rootwait" > ${boot_mnt}/cmdline.txt
 
-    if [ -f ${tmp_dir}/rootfs.tar ]; then
-        rm ${tmp_dir}/rootfs.tar
-    fi
-    pushd ${rootfs_dir}
-    rm -rf boot
-    tar cpf ${tmp_dir}/rootfs.tar .
-    popd
-    pushd ${root_mnt}
-    tar xpf ${tmp_dir}/rootfs.tar -C .
-    popd
+    rm -rf ${rootfs_dir}/boot
+    rsync -avHAXq ${rootfs_dir}/* ${root_mnt}
     sync
     sleep 10
     LOSETUP_D_IMG
-    rm ${tmp_dir}/rootfs.tar
     rm -rf ${rootfs_dir}
     losetup -D
     pushd ${img_dir}
