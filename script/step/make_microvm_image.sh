@@ -150,9 +150,9 @@ make_micro_kernel(){
     pushd /usr/src/linux${kernel_src_version}
     cp ${microvm_dir}/${kernel_config} .config
     if [ ${arch} == "x86_64" ]; then
-        make ARCH=x86_64 -j
+        make ARCH=x86_64
     elif [ ${arch} == "aarch64" ]; then
-        make ARCH=arm64 -j
+        make ARCH=arm64
     else
         LOG "${arch} is not supported yet."
         return 0
