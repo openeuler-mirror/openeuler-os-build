@@ -67,7 +67,7 @@ prepare_kernel(){
     yum clean all -c "${yum_conf}"
     yum makecache -c "${yum_conf}"
 
-    yum install make gcc bison flex openssl-devel elfutils-devel bc -y -c "${yum_conf}"
+    yum install make gcc bison flex openssl-devel elfutils-devel bc iproute iputils -y -c "${yum_conf}"
 
     LOG "prepare vmlinux kernel end."
 }
