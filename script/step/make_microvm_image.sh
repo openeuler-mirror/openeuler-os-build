@@ -48,6 +48,10 @@ prepare_rootfs(){
         mkdir -p ${img_dir}
     fi
 
+    yum clean all -c "${yum_conf}"
+    yum makecache -c "${yum_conf}"
+    yum install iproute iputils -y -c "${yum_conf}"
+
     set +e
     os_release_name=${OS_NAME}-release
     set -e
