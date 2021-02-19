@@ -105,6 +105,10 @@ class Build(object):
             return -1
 
         if step:
+            cmd = 'echo "export STEP=%s" >> script/setup_env.sh' % step
+            if os.system(cmd) != 0:
+                logger.error("build fail")
+                return -1
             code = trace_execute("bash -x {0} {1}".format(
                 self.local_build_shell_path, step), env=self.env, logger=logger)
             if code != 0 and code != "0":

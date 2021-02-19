@@ -30,27 +30,21 @@ function make_netinst_iso_inchroot()
 
     yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
     yum clean all -c "${yum_conf}"
-    if rpm -q mkeuleros &> /dev/null; then
-       yum remove mkeuleros -y
+    if rpm -q oemaker &> /dev/null; then
+       yum remove oemaker -y
     fi
     if rpm -q lorax &> /dev/null; then
        yum remove lorax -y
     fi
 
-    yum install mkeuleros lorax -y -c "${yum_conf}"
-    cd /opt/mkeuleros
-
-    if [ "${ARCH}" = "x86_64" ]; then
-        mkeuleros_conf="config/standard/standard.conf"
-    elif [ "${ARCH}" = "aarch64" ]; then
-        mkeuleros_conf="config/aarch64/standard.conf"
-    fi
+    yum install oemaker lorax -y -c "${yum_conf}"
+    cd /opt/oemaker
 
     set +e
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x mkeuleros.sh -f "${mkeuleros_conf}" -n "${OS_NAME}" -N "TRUE" -v "${OS_VERSION}" -s "SP1" -a "${ARCH}" -r "${OBS_STANDARD_REPO_URL}"
+        bash -x oemaker -t netinst -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then

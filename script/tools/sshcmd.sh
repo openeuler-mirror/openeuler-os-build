@@ -36,7 +36,7 @@ function sshcmd_comm()
 
 	cmd=${cmd//\"/\\\"}
 	cmd=${cmd//\$/\\\$}
-
+    
         if [ "x${testip}" = "x" -o "x${cmd}" = "x" ];then
                 echo "isup  time testmathine [password] [user]"
                 exit 1

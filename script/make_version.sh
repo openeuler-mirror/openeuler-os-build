@@ -9,6 +9,7 @@ export HOME="/root"
 export OUTPUT_PATH="${BUILD_SCRIPT_DIR}/output"
 export PROJECT_PATH="${BUILD_SCRIPT_DIR}/../../../../.."
 export ERROR_LOG="${OUTPUT_PATH}/error_log"
+export UNABLE_INSTALL_LIST="${BUILD_SCRIPT_DIR}"/config/unable_install_list
 
 if [ ! -d "${OUTPUT_PATH}"  ]; then
     mkdir -p "${OUTPUT_PATH}" 
@@ -27,7 +28,7 @@ source "${BUILD_SCRIPT_DIR}"/tools/common.sh || exit 1
 source "${BUILD_SCRIPT_DIR}"/tools/chroot.sh || exit 1
 #source "${BUILD_SCRIPT_DIR}"/tools/obs.sh || exit 1
 
-function get_private_ip()
+function get_repose()
 {
     expect -c "
     spawn $*
@@ -41,7 +42,7 @@ function get_private_ip()
 }
 for((i=0;i<3;i++));
 do
-ret=$(get_private_ip ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} ip addr | grep "172." | tr -cd "[0-9].[0-9]/ " | awk '{print $3}' | awk -F "/" '{print $1}')
+ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} ip addr | grep "172." | tr -cd "[0-9].[0-9]/ " | awk '{print $3}' | awk -F "/" '{print $1}')
 if [ "$ret" != "${RELEASE_SERVER_IP}" ];then
     break
 fi
