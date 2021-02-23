@@ -118,7 +118,7 @@ make_micro_img(){
     popd
     LOG "write ${img_file} done."
     LOG "make ${img_file} end."
-    sshscp "${img_file} ${img_file}.sha256sum ${img_file}.xz ${img_file}.xz.sha256sum " "${RELEASE_DIR}"
+    sshscp "${img_file}.xz ${img_file}.xz.sha256sum " "${RELEASE_DIR}"
 }
 
 make_micro_kernel(){
