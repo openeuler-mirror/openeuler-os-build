@@ -13,20 +13,6 @@ LOG(){
     echo `date` - INFO, $* | tee -a ${log_dir}/${builddate}.log
 }
 
-CP_CHROOT_PACKAGES(){
-    set +e
-    mkdir -m 0755 -p ${rootfs_dir}${2}
-    pushd ${2}
-    cat ${1} | while read file
-    do
-        if [ "${file:0:1}" != "#" ]; then
-            cp -rd --path $file ${rootfs_dir}${2}
-        fi
-    done
-    popd
-    set -e
-}
-
 prepare_rootfs(){
     if [ ! -d ${tmp_dir} ]; then
         mkdir -p ${tmp_dir}
@@ -84,22 +70,13 @@ make_micro_rootfs(){
     fi
     mkdir -p ${rootfs_dir}
 
-    for dir in dev home mnt proc run srv sys boot etc media opt root tmp var usr
-    do
-        mkdir -m 0755 -p ${rootfs_dir}/${dir}
-    done
+    dnf -y --installroot=${rootfs_dir} --noplugins --config="${yum_conf}" install systemd yum iproute iputils
 
-    CP_CHROOT_PACKAGES ${package_dir}/bin.list /usr/bin
-    CP_CHROOT_PACKAGES ${package_dir}/include.list /usr/include
-    CP_CHROOT_PACKAGES ${package_dir}/lib.list /usr/lib
-    CP_CHROOT_PACKAGES ${package_dir}/lib64.list /usr/lib64
-    CP_CHROOT_PACKAGES ${package_dir}/sbin.list /usr/sbin
-    CP_CHROOT_PACKAGES ${package_dir}/share.list /usr/share
-    CP_CHROOT_PACKAGES ${package_dir}/systemd.list /usr/lib/systemd
-    rm -rf ${rootfs_dir}/usr/lib64/python3.*/test
-    cp -d /lib /lib64 /sbin /bin ${rootfs_dir}
-    cp -r /etc/profile* /etc/bashrc /etc/ssh ${rootfs_dir}/etc
-    cp -r ${microvm_dir}/passwd ${microvm_dir}/shadow ${microvm_dir}/pam.d ${rootfs_dir}/etc
+    pushd ${rootfs_dir}
+    rm -rf ./var/cache/ ./var/lib ./var/log ./var/tmp
+    touch etc/resolv.conf
+    sed -i 's|root:x|root:|' etc/passwd
+    popd
 
     LOG "make rootfs for micro_vm end."
 }
