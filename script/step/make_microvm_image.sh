@@ -75,7 +75,7 @@ make_micro_rootfs(){
     pushd ${rootfs_dir}
     rm -rf ./var/cache/ ./var/lib ./var/log ./var/tmp
     touch etc/resolv.conf
-    sed -i 's|root:x|root:|' etc/passwd
+    sed -i 's|root:\*|root:$6$o4rTi3d/.hh6JUYC$ClnCxd2mAQHlt0UloC4ystQg0CiuSVyhXz0sP1mDCNCgWV0rBwegwJ/bCWfjN4WxbahDa7F9U3c6/vFaNgsvX/|' etc/shadow
     popd
 
     LOG "make rootfs for micro_vm end."
@@ -193,7 +193,7 @@ function make_microvm_image_inchroot()
     fi
     mkdir -p "${img_dir}"
 
-    RELEASE_DIR="${release_dir}/microvm_img/${arch}"
+    RELEASE_DIR="${release_dir}/stratovirt_img/${arch}"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"
 
