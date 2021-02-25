@@ -180,7 +180,6 @@ function make_microvm_image_inchroot()
     rootfs_dir=${workdir}/rootfs
     root_mnt=${workdir}/root
     microvm_dir=${BUILD_SCRIPT_DIR}/config/microvm_image
-    package_dir=${microvm_dir}/source.list
 
     builddate=$(date +%Y%m%d)
     get_version
