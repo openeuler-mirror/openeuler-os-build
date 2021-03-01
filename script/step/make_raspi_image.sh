@@ -165,7 +165,7 @@ make_img(){
     size=$(($size+1100))
     losetup -D
     pwd
-    yum install dosfstools parted -y -c "${yum_conf}"
+    yum install dosfstools parted rsync -y -c "${yum_conf}"
     dd if=/dev/zero of=${img_file} bs=1MiB count=$size && sync
     parted ${img_file} mklabel msdos mkpart primary fat32 8192s 593919s
     parted ${img_file} -s set 1 boot
