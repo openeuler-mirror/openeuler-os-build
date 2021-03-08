@@ -43,11 +43,12 @@ function make_iso_everysrc_inchroot()
         sed -i '/<packagelist type="exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
 
+    OBS_STANDARD_REPO_URL=${OBS_STANDARD_REPO_URL%/*}
     set +e
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t everything_src -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
+        bash -x oemaker -t everything_src -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}/standard_aarch64 ${OBS_STANDARD_REPO_URL}/standard_x86_64"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
@@ -76,7 +77,7 @@ function make_iso_everysrc_inchroot()
     CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/ISO/source"
     MOUNT_DIR="${release_dir}/source"
-    SSH_CMD="mkdir -p ${RELEASE_DIR} ${MOUNT_DIR}"
+    SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"
     sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM}" "${RELEASE_DIR}"
     set +e
@@ -85,6 +86,8 @@ function make_iso_everysrc_inchroot()
     do
         ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} umount $mp)
     done
+    SSH_CMD="mkdir -p ${MOUNT_DIR}"
+    sshcmd "${SSH_CMD}"
     SSH_CMD="mount -t iso9660 -o loop ${RELEASE_DIR}/${TGZ_NAME} ${MOUNT_DIR}"
     sshcmd "${SSH_CMD}"
     set -e
