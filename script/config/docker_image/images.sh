@@ -61,7 +61,6 @@ rm -f /sbin/sln
 [ -d /var/lib/dnf ] && rm -rf /var/lib/dnf/*
 [ -d /var/lib/systemd ] && rm -rf /var/lib/systemd/random-seed
 set -e
-rpm -e --nodeps shadow
 [ -d /var/lib/rpm ] && rm -rf /var/lib/rpm/__db.*
 rm -f /etc/default/useradd.rpmsave /etc/login.defs.rpmsave
 # openEuler_chroot will change /etc/hosts in host, we should change it back with hosts.rpmnew
