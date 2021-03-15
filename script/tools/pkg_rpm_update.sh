@@ -74,6 +74,7 @@ fi
 		rm -rf binaries
 		osc getbinaries ${obs_proj} ${pkg} standard_x86_64 x86_64 --source --debug
 		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/
+		rm -f binaries/*.src.rpm
 		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/x86_64/Packages/
 		rm -rf binaries
 		echo ${pkg} >> pkglist_bak
