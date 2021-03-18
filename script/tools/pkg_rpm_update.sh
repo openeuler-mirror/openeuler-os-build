@@ -96,6 +96,7 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
 	update_json_file "create" ${date_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
+	check_update_rpm ${obs_proj} ${date_dir} ${pkg_place} ${update_key}
 }
 
 function release_rpm(){
@@ -214,12 +215,14 @@ function del_pkg_rpm(){
 	rm -f rpmlist.txt
 
 	if [[ ${flag} == "delete" ]];then
+		rm -f pkglist
 		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 		for pkg in ${pkgs}
 		do
 			sed -i "/^$pkg$/d" pkglist
 		done	
 		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+		check_update_rpm ${obs_proj} ${up_dir} ${pkg_place} ${update_key}
 	fi
 }
 
@@ -255,6 +258,78 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
 	update_json_file "del_update_dir" ${up_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
+}
+
+function check_update_rpm(){
+	echo "Start checking update directory package binaries..."
+	obs_proj=$1
+	update_dir=$2
+	pkg_place=$3
+	update_key=$4
+	branch_name=`echo ${obs_proj//:/-}`
+	if [ ${pkg_place} == "standard" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${update_dir}"
+	elif [ ${pkg_place} == "EPOL" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}"
+	fi
+	pkg_aarch_path="${update_path}/aarch64/Packages"
+	pkg_x86_path="${update_path}/x86_64/Packages"
+	source_path="${update_path}/source/Packages"
+	rm -f pkglist
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
+	for pkg in `cat pkglist`
+	do
+		osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep -Ev "standard_|_buildenv|_statistics" >> arch_rpm_bak
+		osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep -Ev "standard_|_buildenv|_statistics" >> x86_rpm_bak
+	done
+	cat arch_rpm_bak x86_rpm_bak | grep "src.rpm" >> src_rpm_bak
+	sed -i '/.src.rpm/d' arch_rpm_bak x86_rpm_bak
+	sed -i 's/^ *//g' arch_rpm_bak src_rpm_bak x86_rpm_bak
+	cat arch_rpm_bak | sort | uniq > arch_rpm_list
+	cat src_rpm_bak | sort | uniq > src_rpm_list
+	cat x86_rpm_bak | sort | uniq > x86_rpm_list
+	rm -f arch_rpm_bak src_rpm_bak x86_rpm_bak
+	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls *.rpm > arch_rpm_bak && cd ${pkg_x86_path} && ls *.rpm > x86_rpm_bak && cd ${source_path} && ls *.rpm > src_rpm_bak"
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_aarch_path}/arch_rpm_bak .
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_x86_path}/x86_rpm_bak .
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${source_path}/src_rpm_bak .
+	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && rm -f arch_rpm_bak && cd ${pkg_x86_path} && rm -f x86_rpm_bak && cd ${source_path} && rm -f src_rpm_bak"
+	cat arch_rpm_bak | sort | uniq > update_arch_rpm
+	cat src_rpm_bak | sort | uniq > update_src_rpm
+	cat x86_rpm_bak | sort | uniq > update_x86_rpm
+	rm -f arch_rpm_bak src_rpm_bak x86_rpm_bak
+	diff -Nur update_arch_rpm arch_rpm_list > diff_arch_list
+	diff -Nur update_src_rpm src_rpm_list > diff_src_list
+	diff -Nur update_x86_rpm x86_rpm_list > diff_x86_list
+	sed -i '1,3d' diff_arch_list diff_src_list diff_x86_list
+	parse_patch_data diff_arch_list ${pkg_aarch_path}
+	parse_patch_data diff_src_list ${source_path}
+	parse_patch_data diff_x86_list ${pkg_x86_path}
+	echo "======================检查结果汇总======================"
+	if [ -s check_result ];then
+		cat check_result
+		rm -f update_*_rpm diff_*_list check_result pkglist
+		exit 1
+	else
+		echo "经过检查后，${update_path}目录中二进制无缺失且无多余！"
+		rm -f update_*_rpm diff_*_list check_result pkglist
+		exit 0	
+	fi
+}
+
+function parse_patch_data(){
+	diff_list=$1
+	pkg_path=$2
+	if [ -s ${diff_list} ];then
+		rdt=`grep "^-" ${diff_list} | sed 's/^-*//g' | sed ':a;N;s/\n/ /;ba;'`
+		miss=`grep "^+" ${diff_list} | sed 's/^+*//g' | sed ':a;N;s/\n/ /;ba;'`
+		if [ -n "${rdt}" ];then
+			echo "${pkg_path}目录中多余二进制：${rdt}" >> check_result
+		fi
+		if [ -n "${miss}" ];then
+			echo "${pkg_path}目录中缺少二进制：${miss}" >> check_result
+		fi
+	fi
 }
 
 if [ $1 == "openEuler:Mainline" ];then
