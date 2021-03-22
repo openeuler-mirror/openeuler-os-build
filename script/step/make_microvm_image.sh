@@ -36,7 +36,6 @@ prepare_rootfs(){
 
     yum clean all -c "${yum_conf}"
     yum makecache -c "${yum_conf}"
-    yum install iproute iputils -y -c "${yum_conf}"
 
     set +e
     os_release_name=${OS_NAME}-release
@@ -57,7 +56,7 @@ prepare_kernel(){
     yum clean all -c "${yum_conf}"
     yum makecache -c "${yum_conf}"
 
-    yum install make gcc bison flex openssl-devel elfutils-devel bc iproute iputils -y -c "${yum_conf}"
+    yum install make gcc bison flex openssl-devel elfutils-devel bc -y -c "${yum_conf}"
 
     LOG "prepare vmlinux kernel end."
 }
@@ -110,9 +109,9 @@ make_micro_img(){
     rm -rf ${rootfs_dir}
     pushd ${img_dir}
     if [ -f ${img_file} ]; then
-        sha256sum $(basename ${img_file}) > ${img_file}.sha256sum
         xz -T 20 -z -c ${img_file} > ${img_file}.xz
         sha256sum $(basename ${img_file}.xz) > ${img_file}.xz.sha256sum
+        rm -f ${img_file}
         LOG "made sum files for ${img_file}"
     fi
     popd
