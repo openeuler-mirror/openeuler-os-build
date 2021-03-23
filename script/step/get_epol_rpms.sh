@@ -35,6 +35,14 @@ function get_epol_rpms_inchroot()
     RELEASE_DIR="${release_dir}/EPOL"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"
+    SSH_CMD="mkdir -p ${RELEASE_DIR}/update/${ARCH}/Packages"
+    sshcmd "${SSH_CMD}"
+    SSH_CMD="createrepo -d ${RELEASE_DIR}/update/${ARCH}"
+    sshcmd "${SSH_CMD}"
+    SSH_CMD="mkdir -p ${release_dir}/update/${ARCH}/Packages"
+    sshcmd "${SSH_CMD}"
+    SSH_CMD="createrepo -d ${release_dir}/update/${ARCH}"
+    sshcmd "${SSH_CMD}"
 
     yum list --installroot="/tmp/EPOL/aarch64/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
 
@@ -51,6 +59,14 @@ function get_epol_rpms_inchroot()
         rm -rf /tmp/EPOL/source/Packages/var
         createrepo -d /tmp/EPOL/source
         sshscp "/tmp/EPOL/source" "${RELEASE_DIR}"
+        SSH_CMD="mkdir -p ${RELEASE_DIR}/update/source/Packages"
+        sshcmd "${SSH_CMD}"
+        SSH_CMD="createrepo -d ${RELEASE_DIR}/update/source"
+        sshcmd "${SSH_CMD}"
+        SSH_CMD="mkdir -p ${release_dir}/update/source/Packages"
+        sshcmd "${SSH_CMD}"
+        SSH_CMD="createrepo -d ${release_dir}/update/source"
+        sshcmd "${SSH_CMD}"
     fi
     rm -rf /tmp/EPOL
     rm -rf /etc/yum.repos.d
