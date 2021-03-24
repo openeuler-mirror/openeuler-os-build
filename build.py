@@ -58,12 +58,6 @@ class Build(object):
         self.env["OUTPUT_PATH"] = self.local_dist_dir
         self.env["PROJECT_PATH"] = self.local_project_path
         self.env["ISCI"] = "0"
-        if self.env["LOCAL_BUILD"] == "1":
-            logger.info("start to set_release_dir")
-            code = trace_execute("bash {0} {1}".format(self.local_build_shell_path, "set_release_dir"), env=self.env,
-                                 logger=logger)
-            if code != 0 and code != "0":
-                return False
         return True
 
     def set_obs_project(self, obs_standard_prj, obs_epol_prj, obs_extras_prj):

@@ -36,6 +36,8 @@ export PRODUCTS=${OS_NAME}
 
 export SHA256SUM=".sha256sum"
 
+export jenkins_build="1"
+
 OBS_REPO_CONF=$(find -iname "obs-repo.conf")
 cat>${OBS_REPO_CONF}<<EOF
 [main]
