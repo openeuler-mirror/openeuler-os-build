@@ -49,7 +49,12 @@ function copy_rpm(){
 	else
 		date_dir=${up_dir}
 	fi
-	branch_name=`echo ${obs_proj//:/-}`
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${date_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
@@ -100,10 +105,16 @@ fi
 }
 
 function release_rpm(){
-	branch_name=`echo ${1//:/-}`
+	obs_proj=$1
 	release_dir=$2	
 	update_key=$3
 	pkg_place=$4
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		repo_path="/repo/openeuler/${branch_name}/update"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${release_dir}"
@@ -153,7 +164,12 @@ function update_rpm(){
 	up_dir=$4
 	pkg_place=$5
 	
-	branch_name=`echo ${1//:/-}`
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
@@ -180,7 +196,12 @@ function del_pkg_rpm(){
 	update_key=$4
 	flag=$5
 	pkg_place=$6
-	branch_name=`echo ${obs_proj//:/-}`
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
@@ -234,11 +255,17 @@ function del_pkg_rpm(){
 }
 
 function del_update_dir(){
-	branch_name=`echo ${1//:/-}`
+	obs_proj=$1
 	up_dir=$2
 	update_key=$3
 	pkg_place=$4
 
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
@@ -273,7 +300,12 @@ function check_update_rpm(){
 	update_dir=$2
 	pkg_place=$3
 	update_key=$4
-	branch_name=`echo ${obs_proj//:/-}`
+	if [ ${obs_proj} =~ "Epol" ];then
+		bak=`echo ${obs_proj%%:Epol}`
+		branch_name=`echo ${bak//:/-}`
+	else
+		branch_name=`echo ${obs_proj//:/-}`
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${update_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
