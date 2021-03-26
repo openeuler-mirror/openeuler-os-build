@@ -49,7 +49,7 @@ function copy_rpm(){
 	else
 		date_dir=${up_dir}
 	fi
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
@@ -109,7 +109,7 @@ function release_rpm(){
 	release_dir=$2	
 	update_key=$3
 	pkg_place=$4
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
@@ -164,7 +164,7 @@ function update_rpm(){
 	up_dir=$4
 	pkg_place=$5
 	
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
@@ -196,7 +196,7 @@ function del_pkg_rpm(){
 	update_key=$4
 	flag=$5
 	pkg_place=$6
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
@@ -260,7 +260,7 @@ function del_update_dir(){
 	update_key=$3
 	pkg_place=$4
 
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
@@ -300,7 +300,7 @@ function check_update_rpm(){
 	update_dir=$2
 	pkg_place=$3
 	update_key=$4
-	if [ ${obs_proj} =~ "Epol" ];then
+	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
