@@ -195,8 +195,9 @@ function del_pkg_rpm(){
 	pkgs=${pkglist//,/ }
 	for pkg in $pkgs
 	do
-		osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep rpm > rpmlist.txt
-		src_rpm=`cat rpmlist.txt | grep "src.rpm"`
+		osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep rpm > aarch_rpmlist.txt
+		osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep rpm > x86_rpmlist.txt
+		src_rpm=`cat aarch_rpmlist.txt | grep "src.rpm"`
 		rpm_name=`echo ${src_rpm%%-[0-9]*}`
 		tmp=`echo ${src_rpm%%.oe1*}`
 		version=`echo ${tmp#*-}`
@@ -204,15 +205,21 @@ function del_pkg_rpm(){
 			version=`echo ${version#*-}`
 		fi
 		big_version=`echo ${version%%-*}`
-		sed -i '/src.rpm/d' rpmlist.txt
-		for line in `cat rpmlist.txt`
+		sed -i '/src.rpm/d' aarch_rpmlist.txt
+		sed -i '/src.rpm/d' x86_rpmlist.txt
+		for line in `cat aarch_rpmlist.txt`
 		do
 			name=`echo ${line%%-[0-9]*}`
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null && cd ${pkg_x86_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
+		done
+		for line2 in `cat x86_rpmlist.txt`
+		do
+			name2=`echo ${line2%%-[0-9]*}`
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_x86_path} && ls ${name2}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 		done
 		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${source_path} && ls ${rpm_name}-*.src.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 	done
-	rm -f rpmlist.txt
+	rm -f *_rpmlist.txt
 
 	if [[ ${flag} == "delete" ]];then
 		rm -f pkglist
