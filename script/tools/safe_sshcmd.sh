@@ -4,6 +4,7 @@
 set -e
 execcmd=""
 machineip=""
+machineport=""
 loginuser=root
 loginpassword=huawei
 timeout=120
@@ -17,10 +18,10 @@ retry_cnt=3
 ######################
 function usage()
 {
-    echo "Usage: sshcmd.sh -c "command" -m "machinetip" [-u login_user] [-p login_password] [-t ping_timeout] [-n ssh_retry_time]"
+    echo "Usage: sshcmd.sh -c "command" -m "machinetip" [-P machineport] [-u login_user] [-p login_password] [-t ping_timeout] [-n ssh_retry_time]"
 }
 
-while getopts "c:m:p:u:t:n:h" OPTIONS
+while getopts "c:m:p:u:t:n:P:h" OPTIONS
 do
         case "${OPTIONS}" in
                 c) execcmd="${OPTARG}";;
@@ -29,6 +30,7 @@ do
                 p) loginpassword="${OPTARG}";;
                 t) timeout="${OPTARG}";;
                 n) retry_cnt="${OPTARG}";;
+                P) machineport="${OPTARG}";;
                 \?) echo "ERROR - Invalid parameter"; echo "ERROR - Invalid parameter" >&2;usage;exit 1;;
                 *) echo "ERROR - Invalid parameter"; echo "ERROR - Invalid parameter" >&2; usage;exit 1;;
         esac
@@ -42,7 +44,11 @@ fi
 
 for((i=0;i<retry_cnt;i++))
 do
-    sh "${TOOLS}"/sshcmd.sh -c "${execcmd}" -m "${machineip}" -u "${loginuser}" -p "${loginpassword}"
+    if [ -n "${machineport}" ];then
+        sh "${TOOLS}"/sshcmd.sh -c "${execcmd}" -m "${machineip}" -u "${loginuser}" -p "${loginpassword}" -P "${machineport}"
+    else
+        sh "${TOOLS}"/sshcmd.sh -c "${execcmd}" -m "${machineip}" -u "${loginuser}" -p "${loginpassword}"
+    fi
     if [ $? -ne 0 ];then
         while true
         do

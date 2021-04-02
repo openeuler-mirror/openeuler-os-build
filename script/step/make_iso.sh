@@ -78,10 +78,10 @@ function make_iso_inchroot()
     sshcmd "${SSH_CMD}"
     sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM} ${iso_rpmlist}" "${RELEASE_DIR}"
     set +e
-    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep OS/${ARCH} | awk '{print $3}')
+    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep OS/${ARCH} | awk '{print $3}')
     for mp in $ret
     do
-        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} umount $mp)
+        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} umount $mp)
     done
     SSH_CMD="mount -t iso9660 -o loop ${RELEASE_DIR}/${TGZ_NAME} ${MOUNT_DIR}"
     sshcmd "${SSH_CMD}"

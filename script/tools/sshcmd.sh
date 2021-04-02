@@ -4,6 +4,7 @@
 set -e
 execcmd=""
 machineip=""
+machineport=""
 loginuser=root
 loginpassword=huawei
 
@@ -18,11 +19,15 @@ loginpassword=huawei
 ######################
 function sshcmd_comm()
 {
-	cmd="$1"
+    cmd="$1"
 	testip="$2"
 	password=${3}
-    echo ${password}
 	user=${4-root}
+    if [ $# == 5 ];then
+        testport="$5"
+    else
+        testport=""
+    fi
 	timeout=180
 
 	if [ "$1x" = "x" ]; then
@@ -41,13 +46,17 @@ function sshcmd_comm()
                 echo "isup  time testmathine [password] [user]"
                 exit 1
         fi
+    if [ -n "${testport}" ];then
+        tport="-p ${testport}"
+    else
+        tport=""
+    fi
 	expect <<-END1
 		## set infinite timeout, because some commands maybe execute long time.
 		set timeout -1
 
 		## remotly exectue command
-		spawn ssh -o "ConnectTimeout ${timeout}" -i ~/.ssh/super_publish_rsa "${user}@${testip}" "${cmd}"
-
+		spawn ssh -o "ConnectTimeout ${timeout}" -i ~/.ssh/super_publish_rsa ${tport} "${user}@${testip}" "${cmd}"
 		expect {
 
 			#first connect, no public key in ~/.ssh/known_hosts
@@ -105,13 +114,14 @@ function sshcmd_comm()
 }
 
 
-while getopts "c:m:p:u:h" OPTIONS
+while getopts "c:m:p:u:P:h" OPTIONS
 do
         case "${OPTIONS}" in
                 c) execcmd="${OPTARG}";;
                 m) machineip="${OPTARG}";;
                 u) loginuser="${OPTARG}";;
                 p) loginpassword="${OPTARG}";;
+                P) machineport="${OPTARG}";;
                 \?) echo "ERROR - Invalid parameter"; echo "ERROR - Invalid parameter" >&2;usage;exit 1;;
                 *) echo "ERROR - Invalid parameter"; echo "ERROR - Invalid parameter" >&2; usage;exit 1;;
         esac
@@ -138,7 +148,7 @@ function delete_known_hosts()
 ######################
 function usage()
 {
-        echo "Usage: sshcmd.sh -c "command" -m "machinetip" [-u login_user] [-p login_password]"
+        echo "Usage: sshcmd.sh -c "command" -m "machinetip" [-P machineport] [-u login_user] [-p login_password]"
 }
 
 if [ "x${execcmd}" = "x" -o "x${machineip}" = "x" ];then
@@ -147,6 +157,6 @@ if [ "x${execcmd}" = "x" -o "x${machineip}" = "x" ];then
 fi
 
 delete_known_hosts
-sshcmd_comm "${execcmd}" "${machineip}" "${loginpassword}" "${loginuser}"
+sshcmd_comm "${execcmd}" "${machineip}" "${loginpassword}" "${loginuser}" "${machineport}"
 
 exit $?

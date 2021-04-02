@@ -35,13 +35,12 @@ function sshcmd_comm()
 	else
 		r_option=""
 	fi
-
 	expect <<-END1
 		## set infinite timeout, because some commands maybe execute long time.
 		set timeout -1
 
 		## remotly exectue command
-		spawn scp -i ~/.ssh/super_publish_rsa -o "ConnectTimeout ${timeout}" "${r_option}" "${srccommand}" "${descommand}"
+		spawn scp -i ~/.ssh/super_publish_rsa -o "ConnectTimeout ${timeout}" ${SCPPORT} "${r_option}" "${srccommand}" "${descommand}"
 
 		expect {
 
