@@ -90,3 +90,37 @@ function trigger_jenkins_project()
     fi
     eval "${CMD}"
 }
+
+function get_repose()
+{
+    expect -c "
+    spawn $*
+    expect {
+        \"*yes/no*\" {send \"yes\n\"}
+        eof
+    }
+    catch wait result;
+    exit [lindex \$result 3]
+    "
+}
+
+function replace_release_server_ip()
+{
+    if [ -n ${RELEASE_SERVER_PORT} ];then
+        SSHPORT="-p ${RELEASE_SERVER_PORT}"
+    else
+        SSHPORT=""
+    fi
+    setupfile=`find -iname "setup_env.sh"`
+    for((i=0;i<3;i++));
+    do
+        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} ip addr | grep inet | awk '{print $2}' | grep -v '127' | awk -F '/' '{print $1}' | sed -n '1p')
+        if [ -n "$ret" ];then
+            sed -i "s/RELEASE_SERVER_IP=\"${RELEASE_SERVER_IP}\"/RELEASE_SERVER_IP=\"$ret\"/g" ${setupfile}
+            if [ "$ret" != "${RELEASE_SERVER_IP}" ];then
+                sed -i "s/RELEASE_SERVER_PORT=\"${RELEASE_SERVER_PORT}\"/RELEASE_SERVER_PORT=""/g" ${setupfile}
+            fi
+            break
+        fi
+    done
+}
