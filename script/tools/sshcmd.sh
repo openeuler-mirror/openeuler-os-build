@@ -46,7 +46,7 @@ function sshcmd_comm()
 		set timeout -1
 
 		## remotly exectue command
-		spawn ssh -o "ConnectTimeout ${timeout}" -i ~/.ssh/super_publish_rsa "${user}@${testip}" "${cmd}"
+		spawn ssh -o "ConnectTimeout ${timeout}" -i ~/.ssh/super_publish_rsa ${SSHPORT} "${user}@${testip}" "${cmd}"
 
 		expect {
 
