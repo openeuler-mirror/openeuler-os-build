@@ -56,11 +56,7 @@ function log_debug()
 ######################
 function sshcmd()
 {
-    if [ -n "${RELEASE_SERVER_PORT}" ];then
-        sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -t 120 -n 3 -P "${RELEASE_SERVER_PORT}"
-    else
-        sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -t 120 -n 3
-    fi
+    sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -t 120 -n 3
     #sh "${BUILD_SCRIPT_DIR}/tools/safe_sshcmd.sh" -c "$1" -m "${RELEASE_SERVER_IP}" -u "${USER}" -p "${PASSWD}" -t 120 -n 3
 }
 
