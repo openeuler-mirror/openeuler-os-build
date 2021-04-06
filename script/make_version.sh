@@ -42,12 +42,12 @@ function get_repose()
 }
 for((i=0;i<3;i++));
 do
-ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa -p ${RELEASE_SERVER_PORT} root@${RELEASE_SERVER_IP} ip addr | grep "172." | tr -cd "[0-9].[0-9]/ " | awk '{print $3}' | awk -F "/" '{print $1}')
+ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa root@${RELEASE_SERVER_IP} ip addr | grep "172." | tr -cd "[0-9].[0-9]/ " | awk '{print $3}' | awk -F "/" '{print $1}')
 if [ "$ret" != "${RELEASE_SERVER_IP}" ];then
     break
 fi
 done
-sed -i "s/RELEASE_SERVER_IP=\"${RELEASE_SERVER_IP}\"/RELEASE_SERVER_IP=\"$ret\"/g" "${BUILD_SCRIPT_DIR}"/setup_env.sh
+#sed -i "s/RELEASE_SERVER_IP=\"${RELEASE_SERVER_IP}\"/RELEASE_SERVER_IP=\"$ret\"/g" "${BUILD_SCRIPT_DIR}"/setup_env.sh
 #sh "${BUILD_SCRIPT_DIR}"/tools/safe_sshcmd.sh -c "ip add | grep 172 | awk -F '/' '{print \$1}'| awk '{print \$2}'" -m ${RELEASE_SERVER_IP} -u "root" -p "xxxx" -t 120 -n 3
 #if echo "${CI_PROJECT}" | grep '_gcov'; then
 #    modify_for_gcov "${BUILD_SCRIPT_DIR}"
