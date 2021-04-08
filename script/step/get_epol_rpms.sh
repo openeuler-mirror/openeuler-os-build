@@ -30,7 +30,12 @@ function get_epol_rpms_inchroot()
     set +e
     mv /etc/yum.repos.d /etc/yum.repos.d.bak
     mkdir -p /etc/yum.repos.d /tmp/EPOL/${ARCH}/Packages "/tmp/EPOL/source/Packages"
-    yum-config-manager --add-repo "${OBS_EPOL_REPO_URL}" --add-repo "${OBS_BRINGINRELY_URL}"
+    if [ -n "${OBS_BRINGINRELY_URL}" ];then
+        bringinrely_repo="--add-repo ${OBS_BRINGINRELY_URL}"
+    else
+        bringinrely_repo=""
+    fi
+    yum-config-manager --add-repo "${OBS_EPOL_REPO_URL}" ${bringinrely_repo}
     yum clean all
     RELEASE_DIR="${release_dir}/EPOL"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
