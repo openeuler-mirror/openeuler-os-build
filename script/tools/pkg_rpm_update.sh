@@ -275,6 +275,7 @@ function del_pkg_rpm(){
 			sed -i "/^$pkg$/d" pkglist
 		done	
 		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
 		check_update_rpm ${obs_proj} ${up_dir} ${pkg_place} ${update_key} ${pkglist} "delete"
 	fi
 }
