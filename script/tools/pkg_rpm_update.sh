@@ -1,8 +1,23 @@
 #!/bin/bash
+# --------------------------------------------------------------------------------------------------------------------
+# Author: wangchong
+# Copyright Huawei Technologies Co., Ltd. 2010-2018. All rights reserved.
+# Decription: Create an UPDATE directory to add, delete, update, check and publish package binaries
+# Function introduction and use method:
+# 1. copy_rpm: create UPDATE directory and add the binaries of the package
+#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "create" <standard/EPOL> [UPDATE_DIR]
+#    Attention: In this function, if the UPDATE_DIR parameter is null, the default value is ""update_"`date +%Y%m%d`"
+# 2. del_pkg_rpm: delete the binaries of package in the UPDATE directory
+#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "del_pkg_rpm" <UPDATE_DIR> <standard/EPOL>
+# 3. update_rpm: update the binaries of package in the UPDATE directory
+#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "update" <UPDATE_DIR> <standard/EPOL>
+# 4. del_update_dir: delete UPDATE directory
+#    Usage: bash pkg_rpm_update.sh <obs_project> <UPDATE_DIR> <machine_key> "del_update_dir" <standard/EPOL>
+# 5. release_rpm: publish the binaries of all packages in the UPDATE directory to the official website
+#    Usage: bash pkg_rpm_update.sh <obs_project> <UPDATE_DIR> <machine_key> "release" <standard/EPOL>
+# --------------------------------------------------------------------------------------------------------------------
 
-update_ip="121.36.84.172"
-release_ip="121.36.97.194"
-
+# Insert the UPDATE directory name into the JSON file
 function insert_dir(){
 	if [[ $1 == "history" ]] || [[ $1 == "update" ]];then
 		line=`grep "$2\"$" $3`
@@ -12,6 +27,7 @@ function insert_dir(){
 	fi
 }
 
+# Delete the UPDATE directory name in the JSON file
 function delete_dir(){
 	if [[ $1 == "update" ]];then
 		line=`grep "$2\"$" $3`
@@ -24,6 +40,7 @@ function delete_dir(){
 	fi
 }
 
+# Update the contents of the JSON file
 function update_json_file(){
 	action=$1
 	update_dir=$2
@@ -38,6 +55,7 @@ function update_json_file(){
 	fi
 }
 
+# Create UPDATE directory and add package binaries
 function copy_rpm(){
 	obs_proj=$1
 	pkglist=$2
@@ -75,18 +93,18 @@ fi
 	for pkg in ${pkgs}
 	do
 		osc getbinaries ${obs_proj} ${pkg} standard_aarch64 aarch64 --source --debug 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/
-		rm -f binaries/*.src.rpm
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/aarch64/Packages/
-		rm -rf binaries
+		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
+		rm -f binaries/*.src.rpm 2>/dev/null
+		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/aarch64/Packages/ 2>/dev/null
+		rm -rf binaries 2>/dev/null
 		osc getbinaries ${obs_proj} ${pkg} standard_x86_64 x86_64 --source --debug 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/
-		rm -f binaries/*.src.rpm
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/x86_64/Packages/
-		rm -rf binaries
+		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
+		rm -f binaries/*.src.rpm 2>/dev/null
+		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/x86_64/Packages/ 2>/dev/null
+		rm -rf binaries 2>/dev/null
 		echo ${pkg} >> pkglist_bak
 	done
-	rm -f pkglist
+	rm -f pkglist 2>/dev/null
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 	cat pkglist_bak >> pkglist
 	cat pkglist | sort | uniq > pkglist_bak
@@ -118,6 +136,7 @@ fi
 	check_update_rpm ${obs_proj} ${date_dir} ${pkg_place} ${update_key} ${pkglist} "create"
 }
 
+# Publish all packages binaries
 function release_rpm(){
 	obs_proj=$1
 	release_dir=$2	
@@ -173,6 +192,7 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 }
 
+# Update packages binaries
 function update_rpm(){
 	obs_proj=$1
 	pkglist=$2
@@ -205,7 +225,7 @@ fi
 	copy_rpm ${obs_proj} ${pkglist} ${update_key} ${pkg_place} ${up_dir} "update"
 }
 
-# delete update dir pkg binary rpm
+# Delete packages binaries
 function del_pkg_rpm(){
 	obs_proj=$1
 	pkglist=$2
@@ -265,10 +285,10 @@ function del_pkg_rpm(){
 		fi
 		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${source_path} && ls ${rpm_name}-*.src.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 	done
-	rm -f *_rpmlist.txt
+	rm -f *_rpmlist.txt 2>/dev/null
 
 	if [[ ${flag} == "delete" ]];then
-		rm -f pkglist
+		rm -f pkglist 2>/dev/null
 		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 		for pkg in ${pkgs}
 		do
@@ -280,6 +300,7 @@ function del_pkg_rpm(){
 	fi
 }
 
+# Delete UPDATE directory
 function del_update_dir(){
 	obs_proj=$1
 	up_dir=$2
@@ -320,6 +341,7 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 }
 
+# Check packages binaries
 function check_update_rpm(){
 	echo "Start checking update directory package binaries..."
 	obs_proj=$1
@@ -351,11 +373,11 @@ function check_update_rpm(){
 	cat arch_rpm_list x86_rpm_list | grep "src.rpm" | sort | uniq >> src_rpm_list
 	sed -i '/.src.rpm/d' arch_rpm_list x86_rpm_list
 	sed -i 's/^ *//g' arch_rpm_list src_rpm_list x86_rpm_list
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls *.rpm > update_arch_rpm && cd ${pkg_x86_path} && ls *.rpm > update_x86_rpm && cd ${source_path} && ls *.rpm > update_src_rpm"
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_aarch_path}/update_arch_rpm .
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_x86_path}/update_x86_rpm .
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${source_path}/update_src_rpm .
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && rm -f update_arch_rpm && cd ${pkg_x86_path} && rm -f update_x86_rpm && cd ${source_path} && rm -f update_src_rpm"
+	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls *.rpm > update_arch_rpm 2>/dev/null && cd ${pkg_x86_path} && ls *.rpm > update_x86_rpm 2>/dev/null && cd ${source_path} && ls *.rpm > update_src_rpm 2>/dev/null"
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_aarch_path}/update_arch_rpm . 2>/dev/null
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_x86_path}/update_x86_rpm . 2>/dev/null
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${source_path}/update_src_rpm . 2>/dev/null
+	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && rm -f update_arch_rpm 2>/dev/null && cd ${pkg_x86_path} && rm -f update_x86_rpm 2>/dev/null && cd ${source_path} && rm -f update_src_rpm 2>/dev/null"
 	parse_data arch_rpm_list update_arch_rpm ${pkg_aarch_path} ${action}
 	parse_data src_rpm_list update_src_rpm ${source_path} ${action}
 	parse_data x86_rpm_list update_x86_rpm ${pkg_x86_path} ${action}
@@ -363,70 +385,77 @@ function check_update_rpm(){
 	if [ -s check_result ];then
 		if [[ ${action} == "delete" ]];then
 			echo "删除${update_path}目录中软件包(${pkglist})的二进制失败!"
-			rm -f update_*_rpm *_rpm_list check_result
+			rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
 			exit 1
 		fi
 		cat check_result
-		rm -f update_*_rpm *_rpm_list check_result
+		rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
 		exit 1
 	else
 		if [[ ${action} == "delete" ]];then
 			echo "删除${update_path}目录中软件包(${pkglist})的二进制成功!"
 		fi
 		echo "经过检查后，${update_path}目录中软件包(${pkglist})的二进制无缺失且无多余！"
-		rm -f update_*_rpm *_rpm_list check_result
+		rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
 		exit 0	
 	fi
 }
 
+# Process the data
 function parse_data(){
 	compare_file=$1
 	base_file=$2
 	pkg_path=$3
 	action=$4
-	for line in `cat ${compare_file}`
-	do
-		grep "^${line}$" ${base_file}
-		if [[ $? -eq 0 ]];then
-			if [[ ${action} == "delete" ]];then
-				echo "${pkg_path}目录中多余二进制:${line}" >> check_result
+	if [ -s ${base_file} ];then
+		for line in `cat ${compare_file}`
+		do
+			grep "^${line}$" ${base_file}
+			if [[ $? -eq 0 ]];then
+				if [[ ${action} == "delete" ]];then
+					echo "${pkg_path}目录中多余二进制:${line}" >> check_result
+				fi
+			else
+				if [[ ${action} != "delete" ]];then
+					echo "${pkg_path}目录中缺少二进制:${line}" >> check_result
+				fi
 			fi
-		else
-			if [[ ${action} != "delete" ]];then
-				echo "${pkg_path}目录中缺少二进制:${line}" >> check_result
-			fi
-		fi
-	done
+		done
+	fi
 }
 
+# Prepare the environment
 function prepare_env(){
 	ssh -i $1 -o StrictHostKeyChecking=no root@${update_ip} "apt-get install -y createrepo &>/dev/null"
 }
 
-if [ $1 == "openEuler:Mainline" ];then
-	echo "openEuler:Mainline not need update"
-	exit 3
-fi
-
-prepare_env $3
-
-if [ $# -eq 5 ];then
-	if [ ${4} == "create" ];then
-		copy_rpm $1 $2 $3 $5
-	elif [ ${4} == "release" ];then
-		release_rpm $1 $2 $3 $5
-	elif [ ${4} == "del_update_dir" ];then
-		del_update_dir $1 $2 $3 $5
+# Main function
+function main(){
+	if [ $1 == "openEuler:Mainline" ];then
+		echo "openEuler:Mainline not need update"
+		exit 3
 	fi
-elif [ $# -eq 6 ];then
-	if [ ${4} == "create" ];then
-		copy_rpm $1 $2 $3 $5 $6
-	elif [ ${4} == "update" ];then
-		update_rpm $1 $2 $3 $5 $6
-	elif [ ${4} == "del_pkg_rpm" ];then
-		del_pkg_rpm $1 $2 $3 $5 "delete" $6
+	prepare_env $3
+	if [ $# -eq 5 ];then
+		if [ ${4} == "create" ];then
+			copy_rpm $1 $2 $3 $5
+		elif [ ${4} == "release" ];then
+			release_rpm $1 $2 $3 $5
+		elif [ ${4} == "del_update_dir" ];then
+			del_update_dir $1 $2 $3 $5
+		fi
+	elif [ $# -eq 6 ];then
+		if [ ${4} == "create" ];then
+			copy_rpm $1 $2 $3 $5 $6
+		elif [ ${4} == "update" ];then
+			update_rpm $1 $2 $3 $5 $6
+		elif [ ${4} == "del_pkg_rpm" ];then
+			del_pkg_rpm $1 $2 $3 $5 "delete" $6
+		fi
+	else
+		echo "error, please check parameters"
+		exit 4
 	fi
-else
-	echo "error, please check parameters"
-	exit 4
-fi
+}
+
+main "$@"
