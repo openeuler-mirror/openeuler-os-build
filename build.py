@@ -75,6 +75,15 @@ class Build(object):
         cmd = "sed -i 's/OBS_EXTRAS_PROJECT=.*/OBS_EXTRAS_PROJECT=%s/g' script/setup_env.sh" % obs_extras_prj
         rmsg = os.popen(cmd).read()
         print(rmsg)
+        cmd = "cat script/setup_env.sh | grep OBS_EPOL_MULTI_VERSION_LIST"
+        rmsg = os.popen(cmd).read().split("=")[1].replace("\n", "")
+        if not rmsg:
+            cmd = "osc list | grep ^%s:Multi" % obs_epol_prj
+            rmsg = os.popen(cmd).read().replace("\n", " ").strip()
+            cmd = "sed -i 's/OBS_EPOL_MULTI_VERSION_LIST=.*/OBS_EPOL_MULTI_VERSION_LIST=\"{0}\"/g' \
+                    script/setup_env.sh".format(rmsg)
+            rmsg = os.popen(cmd).read()
+            print(rmsg)
 
     def clean(self):
         """
