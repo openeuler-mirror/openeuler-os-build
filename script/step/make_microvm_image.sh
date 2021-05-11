@@ -2,7 +2,6 @@
 
 set -e
 arch="$(uname -m)"
-kernel_config="kernel_config_5.10_${arch}"
 yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
 
 ERROR(){
@@ -126,8 +125,10 @@ make_micro_kernel(){
     yum install kernel-source -y -c "${yum_conf}"
     kernel_src_name=$(rpm -qa | grep kernel-source)
     kernel_src_version=${kernel_src_name: 13}
+    kernel_main_version=${kernel_src_name: 14: 4}
 
     pushd /usr/src/linux${kernel_src_version}
+    kernel_config="kernel_config_${kernel_main_version}_${arch}"
     cp ${microvm_dir}/${kernel_config} .config
     if [ ${arch} == "x86_64" ]; then
         make ARCH=x86_64
