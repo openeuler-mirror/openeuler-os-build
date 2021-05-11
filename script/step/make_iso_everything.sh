@@ -83,7 +83,7 @@ function make_iso_everything_inchroot()
     sshcmd "${SSH_CMD}"
     sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM}" "${RELEASE_DIR}"
     set +e
-    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep everything/${ARCH} | awk '{print $3}')
+    ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep everything/${ARCH} | grep -v test | awk '{print $3}')
     for mp in $ret
     do
         ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} umount $mp)
