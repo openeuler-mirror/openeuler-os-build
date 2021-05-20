@@ -11,51 +11,8 @@ function kiwi_init()
     if which kiwi &> /dev/null; then
         echo "kiwi has been ok"
     else
-	if [ "$dogsheng_arch" == "x86_64" ]
-	then
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/xorriso.x86_64.rpm
-	    wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/umoci.x86_64.rpm
-	    wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/containers-common.x86_64.rpm
-	    wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/libisoburn.x86_64.rpm
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/libburn.x86_64.rpm
-	    yum clean all -c "${yum_conf}"
-	    yum install -y python3-setuptools python3-docopt -c "${yum_conf}"
-	    yum install -y python3-future -c "${yum_conf}"
-	    yum install -y libisofs -c "${yum_conf}"
-	    # yum install -y libisoburn -c "${yum_conf}"
-	    yum install -y libburn.x86_64.rpm
-	    yum install -y libisoburn.x86_64.rpm
-	    #yum install -y libburn -c. "${yum_conf}"
-	    yum install -y kde-filesystem -c "${yum_conf}"
-	    yum install -y ostree-libs -c "${yum_conf}"
-            yum install -y xorriso.x86_64.rpm
-	    yum install -y kiwi -c "${yum_conf}"
-	    yum install -y umoci.x86_64.rpm
-	    yum install -y containers-common.x86_64.rpm
-	    yum install -y skopeo -c "${yum_conf}"
-	else
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/xorriso.aarch64.rpm
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/libisoburn.aarch64.rpm
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/umoci.aarch64.rpm
-            wget http://172.16.1.95:88/mainline/standard_aarch64/rpmlist/containers-common.aarch64.rpm
-            yum clean all -c "${yum_conf}"
-            yum install -y python3-setuptools python3-docopt -c "${yum_conf}"
-            yum install -y python3-future -c "${yum_conf}"
-            yum install -y libisofs -c "${yum_conf}"
-            # yum install -y libisoburn -c "${yum_conf}"
-            yum install -y libburn -c "${yum_conf}"
-            yum install -y libisoburn.aarch64.rpm
-            yum install -y kde-filesystem -c "${yum_conf}"
-            yum install -y ostree-libs -c "${yum_conf}"
-      
-            yum install -y xorriso.aarch64.rpm
-            yum install -y kiwi -c "${yum_conf}"
-            yum install -y umoci.aarch64.rpm
-            yum install -y containers-common.aarch64.rpm
-            # yum install -y ostree-libs.aarch64.rpm
-            # yum install -y skopeo.aarch64.rpm
-            yum install -y skopeo -c "${yum_conf}"
-        fi
+        yum clean all -c "${yum_conf}"
+        yum install -y python3-setuptools python3-docopt python3-future libisofs libburn libisoburn kde-filesystem ostree-libs xorriso kiwi umoci containers-common skopeo -c "${yum_conf}"
     fi
     umask_value=$(umask)
     if [ "x${umask_value}" != "x0022" ]; then
