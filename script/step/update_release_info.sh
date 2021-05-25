@@ -91,23 +91,8 @@ function update_release_info()
         while [ $waitime -gt 0 ]
         do
             set +e
-            if [ ${arm_flag} -eq 0 ];then
-                wget -q -r -l1 -nd -A openEuler-latest-release-*.aarch64.rpm ${root_url}/standard_aarch64/aarch64/
-                pkginfo=`ls | grep $pkg`
-                if [[ "$pkginfo" =~ "$timestr" ]];then
-                    arm_flag=1
-                fi
-                rm -rf ${pkg}*
-            fi
-            if [ ${x86_flag} -eq 0 ];then
-                wget -q -r -l1 -nd -A openEuler-latest-release-*.x86_64.rpm ${root_url}/standard_x86_64/x86_64/
-                pkginfo=`ls | grep $pkg`
-                if [[ "$pkginfo" =~ "$timestr" ]];then
-                    x86_flag=1
-                fi
-                rm -rf ${pkg}*
-            fi
-            if [[ ${arm_flag} -eq 1 ]] && [[ ${x86_flag} -eq 1 ]];then
+            osc prjresults ${obs_pro} --csv | grep "aarch64/published" | grep "x86_64/published"
+            if [ $? -eq 0 ];then
                 break
             fi
             let waitime=$waitime-5
