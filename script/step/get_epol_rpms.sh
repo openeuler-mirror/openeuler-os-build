@@ -46,6 +46,11 @@ function get_epol_rpms_inchroot()
     yum list --installroot="${tmp_dir}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
     yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
     rm -rf ${tmp_dir}/Packages/var
+    unrpms=`cat ${UNABLE_INSTALL_LIST}`
+    for unrpm in ${unrpms}
+    do
+        rm -rf ${tmp_dir}/Packages/${unrpm}
+    done
     createrepo -d ${tmp_dir}
     sshscp "${tmp_dir}" "${RELEASE_DIR}/main/"
     if [[ "$ARCH" == "aarch64" ]];then
@@ -57,6 +62,10 @@ function get_epol_rpms_inchroot()
         yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
         yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
         rm -rf ${tmp_source}/Packages/var
+        for unrpm in ${unrpms}
+        do
+            rm -rf ${tmp_source}/Packages/${unrpm}
+        done
         createrepo -d ${tmp_source}
         sshscp "${tmp_source}" "${RELEASE_DIR}/main/"
         SSH_CMD="mkdir -p ${RELEASE_DIR}/update/main/source/Packages && createrepo -d ${RELEASE_DIR}/update/main/source"
@@ -81,6 +90,10 @@ function get_epol_rpms_inchroot()
             yum list --installroot="${tmp_dir}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
             yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
             rm -rf ${tmp_dir}/Packages/var
+            for unrpm in ${unrpms}
+            do
+                rm -rf ${tmp_dir}/Packages/${unrpm}
+            done
             createrepo -d ${tmp_dir}
             SSH_CMD="mkdir -p ${RELEASE_DIR}/multi_version/${PKG}-${VER}"
             sshcmd "${SSH_CMD}"
@@ -92,6 +105,10 @@ function get_epol_rpms_inchroot()
                 yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
                 yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
                 rm -rf ${tmp_source}/Packages/var
+                for unrpm in ${unrpms}
+                do
+                    rm -rf ${tmp_source}/Packages/${unrpm}
+                done
                 createrepo -d ${tmp_source}
                 sshscp "${tmp_source}" "${RELEASE_DIR}/multi_version/${PKG}-${VER}"
             fi
