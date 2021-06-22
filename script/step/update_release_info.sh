@@ -87,6 +87,7 @@ function update_release_info()
         osc up
         osc add isopackage_arm64.sdf 
         osc ci -m "update isopackage_arm64.sdf"
+	sleep 60
         waitime=6000
         while [ $waitime -gt 0 ]
         do
