@@ -3,7 +3,7 @@
 echo "--------------- start delete older iso ----------------"
 DIR=$1
 my_key=$2
-ISO_DAYS=30
+ISO_DAYS=$3
 TODAY=`date +%s`
 files=`ssh -i $my_key -o StrictHostKeyChecking=no root@121.36.84.172 "ls $DIR | grep openeuler-"`
 
