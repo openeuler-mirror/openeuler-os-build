@@ -17,11 +17,7 @@ function make_hmi_inchroot()
     HMI_REPOS=$(echo "${OBS_STANDARD_REPO_URL}")
     #HMI_REPOS=$(echo "${OBS_STANDARD_REPO_URL}" | sed 's/ / -r /g')
     yum -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf clean all
-    if [ "${ARCH}" = "aarch64" ];then
-        yum install -y CreateImage sudo parted dosfstools e2fsprogs -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf
-    else
-        yum install -y CreateImage sudo parted -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf
-    fi
+    yum install -y CreateImage sudo parted dosfstools e2fsprogs -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf
     pushd "${RESULT_HMI}"
     set +e
     chmod 755 /usr/bin/create-image
