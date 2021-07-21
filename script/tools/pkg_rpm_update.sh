@@ -78,9 +78,13 @@ function copy_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${date_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/main"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/multi_version"
 	else
 		echo "package family is error!"
-		exit 0
+		exit 1
 	fi
 	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
 if [ ! -d ${update_path} ];then
@@ -127,7 +131,7 @@ fi
 	json_file="${branch_name}-update.json"
 	if [ ${pkg_place} == "standard" ];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [ ${pkg_place} == "EPOL" ];then
+	elif [[ ${pkg_place} =~ "EPOL" ]];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
 	fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
@@ -156,15 +160,33 @@ function release_rpm(){
 		repo_path="/repo/openeuler/${branch_name}/EPOL/update"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}"
 		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		repo_path="/repo/openeuler/${branch_name}/EPOL/update/main/update"
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/main"
+		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/main/update"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		repo_path="/repo/openeuler/${branch_name}/EPOL/update/multi_version/update"
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/multi_version"
+		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/multi_version/update"
 	else
 		echo "package family is error!"
-		exit 0
+		exit 1
 	fi
 	path_list="aarch64 x86_64 source"
 	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
 if [ ! -d ${update_dir} ];then
 	echo "${update_dir} is not exist..."
 	exit 1
+fi
+if [ ! -d ${bak_dir} ];then
+	mkdir -p ${bak_dir} && cd ${bak_dir}
+	mkdir -p aarch64/Packages x86_64/Packages source/Packages
+fi
+"
+	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "
+if [ ! -d ${repo_path} ];then
+	mkdir -p ${repo_path} && cd ${repo_path}
+	mkdir -p aarch64/Packages x86_64/Packages source/Packages
 fi
 "
         echo "开始发布${update_dir}目录中的所有的二进制到194机器!"
@@ -183,7 +205,7 @@ fi
 	echo "备份及发布${update_dir}成功!"
 	if [ ${pkg_place} == "standard" ];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [ ${pkg_place} == "EPOL" ];then
+	elif [[ ${pkg_place} =~ "EPOL" ]];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
 	fi
 	json_file="${branch_name}-update.json"
@@ -210,9 +232,13 @@ function update_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
 	else
 		echo "package family is error!"
-		exit 0
+		exit 1
 	fi
 	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
 if [ ! -d ${update_path} ];then
@@ -243,9 +269,13 @@ function del_pkg_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
 	else
 		echo "package family is error!"
-		exit 0
+		exit 1
 	fi
 	pkg_aarch_path="${update_path}/aarch64/Packages"
 	pkg_x86_path="${update_path}/x86_64/Packages"
@@ -317,6 +347,10 @@ function del_update_dir(){
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
 	else
 		echo "package family is error!"
 		exit 1
@@ -334,6 +368,8 @@ fi
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
+	elif [[ ${pkg_place} =~ "EPOL-" ]];then
+		exit 0
 	fi
 	json_file="${branch_name}-update.json"
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
@@ -360,6 +396,10 @@ function check_update_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${update_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}"
+	elif [ ${pkg_place} == "EPOL-main" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/main"
+	elif [ ${pkg_place} == "EPOL-multi_version" ];then
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/multi_version"
 	fi
 	pkg_aarch_path="${update_path}/aarch64/Packages"
 	pkg_x86_path="${update_path}/x86_64/Packages"
