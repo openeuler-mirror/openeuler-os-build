@@ -29,7 +29,8 @@ SUB_EXTRAS_REPO_URL="$(echo ${OBS_EXTRAS_PROJECT//:/:\/})"
 export OBS_STANDARD_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_STANDARD_REPO_URL}/standard_${ARCH}"
 export OBS_EPOL_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_EPOL_REPO_URL}/standard_${ARCH}"
 export OBS_EXTRAS_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_EXTRAS_REPO_URL}/standard_${ARCH}"
-export OBS_BRINGINRELY_URL="http://${OBS_SERVER_IP}:88/bringInRely/standard_${ARCH}"
+export OBS_BRINGINRELY_URL=
+export OBS_STANDARD_THIRD_REPO_URL=
 
 
 export RELEASE_ROOT_PATH="/repo/openeuler/dailybuild"
