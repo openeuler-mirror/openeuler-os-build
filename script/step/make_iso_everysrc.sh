@@ -48,7 +48,7 @@ function make_iso_everysrc_inchroot()
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t everything_src -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}/standard_aarch64 ${OBS_STANDARD_REPO_URL}/standard_x86_64"
+        bash -x oemaker -t everything_src -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}/standard_aarch64 ${OBS_STANDARD_REPO_URL}/standard_x86_64 ${OBS_STANDARD_THIRD_REPO_URL}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then

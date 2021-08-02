@@ -42,7 +42,7 @@ function make_iso_inchroot()
     set +u
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t standard -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
+        bash -x oemaker -t standard -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
