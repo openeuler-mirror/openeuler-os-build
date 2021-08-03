@@ -42,6 +42,7 @@ export VM_IMAGE_NAME="${RELEASE_VERSION_DIR}-${ARCH}.qcow2"
 export RASPI_IMAGE_NAME="${RELEASE_VERSION_DIR}-raspi-${ARCH}.img"
 export MICROVM_IMAGE_NAME="${RELEASE_VERSION_DIR}-stratovirt-${ARCH}.img"
 export MICROVM_KERNEL_NAME="vmlinux.bin"
+export STDANDARD_VM_KERNEL_NAME="std-vmlinux"
 
 export PRODUCTS=${OS_NAME}
 

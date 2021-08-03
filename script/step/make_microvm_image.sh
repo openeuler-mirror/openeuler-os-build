@@ -50,6 +50,7 @@ prepare_kernel(){
     fi
 
     kernel_file=${img_dir}/${MICROVM_KERNEL_NAME}
+    std_kernel_file=${img_dir}/${STDANDARD_VM_KERNEL_NAME}
 
     LOG "prepare vmlinux kernel begin..."
     yum clean all -c "${yum_conf}"
@@ -153,6 +154,44 @@ make_micro_kernel(){
     sshscp "${kernel_file} ${kernel_file}.sha256sum " "${RELEASE_DIR}"
 }
 
+make_standard_kernel(){
+    LOG "make ${std_kernel_file} begin..."
+
+    yum install kernel-source -y -c "${yum_conf}"
+    kernel_src_name=$(rpm -qa | grep kernel-source)
+    kernel_src_version=${kernel_src_name: 13}
+    kernel_main_version=${kernel_src_name: 14: 4}
+
+    pushd /usr/src/linux${kernel_src_version}
+    kernel_config="kernel_config_${kernel_main_version}_${arch}"
+    cp ${standard_vm_dir}/${kernel_config} .config
+    if [ ${arch} == "x86_64" ]; then
+        std_kernel_file=${std_kernel_file}z
+        make ARCH=x86_64
+        make bzImage
+        mv arch/x86/boot/bzImage ${std_kernel_file}
+    elif [ ${arch} == "aarch64" ]; then
+        std_kernel_file=${std_kernel_file}.bin
+        make ARCH=arm64
+        objcopy -O binary vmlinux ${std_kernel_file}
+    else
+        LOG "${arch} is not supported yet."
+        return 0
+    fi
+
+    popd
+
+    pushd ${img_dir}
+    if [ -f ${std_kernel_file} ]; then
+        sha256sum $(basename ${std_kernel_file}) > ${std_kernel_file}.sha256sum
+        LOG "made sum file for ${std_kernel_file}"
+    fi
+    popd
+
+    LOG "make ${std_kernel_file} end."
+    sshscp "${std_kernel_file} ${std_kernel_file}.sha256sum " "${RELEASE_DIR}"
+}
+
 function make_microvm_image()
 {
     chroot_run "cd /home; bash -x make_version.sh make_microvm_image_inchroot"
@@ -180,6 +219,7 @@ function make_microvm_image_inchroot()
     rootfs_dir=${workdir}/rootfs
     root_mnt=${workdir}/root
     microvm_dir=${BUILD_SCRIPT_DIR}/config/microvm_image
+    standard_vm_dir=${BUILD_SCRIPT_DIR}/config/standard_vm_image
 
     builddate=$(date +%Y%m%d)
     get_version
@@ -202,4 +242,7 @@ function make_microvm_image_inchroot()
 
     prepare_kernel
     make_micro_kernel
+
+    prepare_kernel
+    make_standard_kernel
 }
