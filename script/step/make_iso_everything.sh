@@ -44,12 +44,12 @@ function make_iso_everything_inchroot()
     do
         sed -i '/<packagelist type="exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
-
+    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t everything -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}"
+        bash -x oemaker -t everything -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${REPOS}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then

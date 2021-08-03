@@ -36,13 +36,13 @@ function make_iso_inchroot()
     fi
     yum install oemaker lorax -y -c "${yum_conf}"
     cd /opt/oemaker
-
+    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     set +u
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t standard -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}"
+        bash -x oemaker -t standard -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${REPOS}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
