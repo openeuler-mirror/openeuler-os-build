@@ -45,12 +45,15 @@ function update_json_file(){
 	action=$1
 	update_dir=$2
 	json_file=$3
+	pkglist=$4
 	if [[ ${action} == "create" ]];then
 		insert_dir "update" ${update_dir} ${json_file}
 	elif [[ ${action} == "del_update_dir" ]];then
 		delete_dir "update" ${update_dir} ${json_file}
 	elif [[ ${action} == "release" ]];then
-		delete_dir "update" ${update_dir} ${json_file}
+		if [[ "x${pkglist}" == "x" ]];then
+			delete_dir "update" ${update_dir} ${json_file}
+		fi
 		insert_dir "history" ${update_dir} ${json_file}
 	fi
 }
@@ -146,16 +149,21 @@ function release_rpm(){
 	release_dir=$2	
 	update_key=$3
 	pkg_place=$4
+	pkglist=$5	
 	if [[ ${obs_proj} =~ "Epol" ]];then
 		bak=`echo ${obs_proj%%:Epol}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
 	fi
+	if [[ ${pkg_place} =~ "EPOL" ]];then
+		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
+	fi
 	if [ ${pkg_place} == "standard" ];then
 		repo_path="/repo/openeuler/${branch_name}/update"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${release_dir}"
 		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/update"
+		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		repo_path="/repo/openeuler/${branch_name}/EPOL/update"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}"
@@ -189,29 +197,105 @@ if [ ! -d ${repo_path} ];then
 	mkdir -p aarch64/Packages x86_64/Packages source/Packages
 fi
 "
-        echo "开始发布${update_dir}目录中的所有的二进制到194机器!"
-	for path in ${path_list}
-        do
-		mkdir $path
-		## backup update_xxxx dir rpm into update dir
-		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cp -rf ${update_dir}/${path}/Packages/*.rpm ${bak_dir}/${path}/Packages/"
-		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${path}"
-		## release rpm to website
-		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${path}/Packages/*.rpm ./$path/
-		scp -i ${update_key} -o StrictHostKeyChecking=no ./$path/*.rpm root@${release_ip}:${repo_path}/${path}/Packages/
-		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && createrepo -d ${path}"
-		rm -rf $path
-        done
-	echo "备份及发布${update_dir}成功!"
-	if [ ${pkg_place} == "standard" ];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [[ ${pkg_place} =~ "EPOL" ]];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
-	fi
 	json_file="${branch_name}-update.json"
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-	update_json_file "release" ${release_dir} ${json_file}
-	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
+	if [[ "x${pkglist}" == "x" ]];then
+		echo "开始发布${update_dir}目录中的所有的二进制到194机器!"
+		for path in ${path_list}
+		do
+			mkdir $path
+			# backup update_xxxx dir rpm into update dir
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cp -rf ${update_dir}/${path}/Packages/*.rpm ${bak_dir}/${path}/Packages/"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${path}"
+			# release rpm to website
+			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${path}/Packages/*.rpm ./$path/
+			scp -i ${update_key} -o StrictHostKeyChecking=no ./$path/*.rpm root@${release_ip}:${repo_path}/${path}/Packages/
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && createrepo -d ${path}"
+			rm -rf $path
+		done
+		echo "备份及发布${update_dir}成功!"
+		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
+		update_json_file "release" ${release_dir} ${json_file}
+		scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
+	else
+		pkgs=${pkglist//,/ }
+		arch_list="aarch64 x86_64"
+		rm -rf ${path_list} NOT_FOUND binrpmlist
+		mkdir ${path_list} && touch NOT_FOUND
+		for pkg in ${pkgs}
+		do
+			flag=0
+			res=`osc ls ${obs_proj} 2>/dev/null | grep ^${pkg}$`
+			if [[ "x${res}" == "x" ]];then
+				echo "===Error: ${obs_proj} ${pkg} is not exists!!!==="
+				exit 1
+			fi
+			for arch in ${arch_list}
+			do
+				osc ls -b ${obs_proj} ${pkg} standard_${arch} ${arch} 2>/dev/null | grep rpm > binrpmlist
+				if [ ! -s binrpmlist ];then
+					continue
+				else
+					if [[ ${flag} == 0 ]];then
+						src_rpm=`cat binrpmlist | grep "src.rpm"`
+						src_rpm_name=`echo ${src_rpm%%-[0-9]*}`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ${src_rpm_name}-[0-9]*.rpm"`
+						if [[ "x${result}" == "x" ]];then
+							echo "$src_rpm_name-xxx.oe1.src.rpm" >> NOT_FOUND
+							flag=1
+						else
+							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/source/Packages/${result} ./source/
+							if [ ! -f "source/${result}" ];then
+								echo "===Error: scp ${result} failed!!!==="
+								exit 1
+							fi
+						fi
+					fi
+					sed -i '/src.rpm/d' binrpmlist
+					for line in `cat binrpmlist`
+					do
+						name=`echo ${line%%-[0-9]*}`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ${name}-[0-9]*.rpm"`
+						if [[ "x${result}" == "x" ]];then
+							echo "${name}-xxx.oe1.${arch}.rpm" >> NOT_FOUND
+						else
+							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${arch}/Packages/${result} ./${arch}/
+							if [ ! -f "${arch}/${result}" ];then
+								echo "===Error: scp ${result} failed!!!==="
+								exit 1
+							fi
+						fi
+					done
+				fi
+			done
+		done
+		if [ -s NOT_FOUND ];then
+			echo "==========Error: Not Found some binaries rpm in ${update_dir} directory=========="
+			cat NOT_FOUND
+			echo "===================="
+			exit 1
+		else
+			echo "开始发布${update_dir}目录中软件包${pkgs}的二进制到194机器!"
+			ls ${path_list}
+			for arch in ${path_list}
+			do
+				# backup update_xxxx dir some packages binaries rpm into update dir
+				scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${update_ip}:${bak_dir}/${arch}/Packages/
+				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch}"
+				# release some packages binaries rpm to website
+				scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
+				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && createrepo -d ${arch}"
+				rm -rf ${arch}
+			done
+			echo "备份及发布成功!"
+			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
+			for pkg in ${pkgs}
+			do
+				release_pkg="${release_dir}/${pkg}"
+				update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
+			done
+			scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
+		fi
+	fi
 }
 
 # Update packages binaries
@@ -487,6 +571,8 @@ function main(){
 	elif [ $# -eq 6 ];then
 		if [ ${4} == "create" ];then
 			copy_rpm $1 $2 $3 $5 $6
+		elif [ ${4} == "release" ];then
+			release_rpm $1 $2 $3 $5 $6
 		elif [ ${4} == "update" ];then
 			update_rpm $1 $2 $3 $5 $6
 		elif [ ${4} == "del_pkg_rpm" ];then
