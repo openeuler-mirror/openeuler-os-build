@@ -238,7 +238,7 @@ fi
 					if [[ ${flag} == 0 ]];then
 						src_rpm=`cat binrpmlist | grep "src.rpm"`
 						src_rpm_name=`echo ${src_rpm%%-[0-9]*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ${src_rpm_name}-[0-9]*.rpm"`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep ${src_rpm_name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
 							echo "$src_rpm_name-xxx.oe1.src.rpm" >> NOT_FOUND
 							flag=1
@@ -254,7 +254,7 @@ fi
 					for line in `cat binrpmlist`
 					do
 						name=`echo ${line%%-[0-9]*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ${name}-[0-9]*.rpm"`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep ${name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
 							echo "${name}-xxx.oe1.${arch}.rpm" >> NOT_FOUND
 						else
