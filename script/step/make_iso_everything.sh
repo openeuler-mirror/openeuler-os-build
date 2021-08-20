@@ -30,13 +30,16 @@ function make_iso_everything_inchroot()
 
     yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
     yum clean all -c "${yum_conf}"
+
+    yum install python3 -y -c "${yum_conf}"
+    python3 ${BUILD_SCRIPT_DIR}/tools/check_dep.py -d /tmp -l allist -f check_dep.log -e ${UNABLE_INSTALL_LIST} -c "${yum_conf}" -r obs-standard
+
     if rpm -q oemaker &> /dev/null; then
        yum remove oemaker -y
     fi
     if rpm -q lorax &> /dev/null; then
        yum remove lorax -y
     fi
-    
     yum install oemaker lorax -y -c "${yum_conf}"
     cd /opt/oemaker
     rpmsnames=`cat ${UNABLE_INSTALL_LIST}`
@@ -121,7 +124,6 @@ function make_iso_everything_inchroot()
         log_error "Failed in chmod_http"
     fi
     set -e
-
     return 0
 }
 
