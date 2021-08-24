@@ -10,11 +10,16 @@ import argparse
 def kill_yumdownloader(rpm_path, thr):
     cmd = "ls %s | grep '\.rpm'" % rpm_path
     res = os.popen(cmd).read()
+    time_old = time.time()
     while not res:
-        if not thr.is_alive():
-            break
         time.sleep(5)
         res = os.popen(cmd).read()
+        time_now = time.time()
+        time_differ = int(time_now - time_old)
+        if time_differ > 1800:
+            break
+        if not thr.is_alive():
+            break
     cmd = "ps -ef | grep yumdownloader | awk '{print $2}' | xargs kill -9"
     os.system(cmd)
 
@@ -89,6 +94,7 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
     if set_rpm_list(rpm_list_file, arch, rpm_path, config=config, repo=repo):
         sys.exit(1)
     delete_list = []
+    time_old = time.time()
     cmd="yumdownloader --resolve --installroot=%s --destdir=%s $(cat %s | awk '{print $1}' | tr '\n' ' ') %s" % (rpm_path, rpm_path, rpm_list_file, para)
     p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
     out, err = p.communicate()
@@ -97,6 +103,12 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
             if "Problem" not in err and "No package" not in err:
                 break
             set_exclude(f, arch, err, rpm_list_file, delete_rpm_list_file)
+
+            time_now = time.time()
+            time_differ = int(time_now - time_old)
+            if time_differ > 1800:
+                break
+
             cmd="yumdownloader --resolve --installroot=%s --destdir=%s $(cat %s | awk '{print $1}' | tr '\n' ' ') %s" % (rpm_path, rpm_path, rpm_list_file, para)
             p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
             out, err = p.communicate()
