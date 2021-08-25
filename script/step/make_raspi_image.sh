@@ -135,8 +135,8 @@ make_rootfs(){
     #    mkdir -p $rootfs_dir/etc/sysconfig/network-scripts
     #fi
     cp ${euler_dir}/ifcfg-eth0 $rootfs_dir/etc/sysconfig/network-scripts/ifcfg-eth0
-    mkdir -p ${rootfs_dir}/usr/bin ${rootfs_dir}/lib/udev/rules.d ${rootfs_dir}/lib/systemd/system
-    if [ -d ${rootfs_dir}/usr/share/licenses/raspi ]; then
+    mkdir -p ${rootfs_dir}/lib/udev/rules.d
+    if [ ! -d ${rootfs_dir}/usr/share/licenses/raspi ]; then
         mkdir -p ${rootfs_dir}/usr/share/licenses/raspi
     fi
     cp ${euler_dir}/*.rules ${rootfs_dir}/lib/udev/rules.d/
@@ -193,16 +193,16 @@ make_img(){
     fstab_array=("" "" "" "")
     for line in `blkid | grep /dev/mapper/${loopX}p`
     do
-        uuid=${line#*UUID=\"}
-        fstab_array[${line:18:1}]=${uuid%%\"*}
+        partuuid=${line#*PARTUUID=\"}
+        fstab_array[${line:18:1}]=${partuuid%%\"*}
     done
-    echo "UUID=${fstab_array[3]}  / ext4    defaults,noatime 0 0" > ${rootfs_dir}/etc/fstab
-    echo "UUID=${fstab_array[1]}  /boot vfat    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
-    echo "UUID=${fstab_array[2]}  swap swap    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
+    echo "PARTUUID=${fstab_array[3]}  / ext4    defaults,noatime 0 0" > ${rootfs_dir}/etc/fstab
+    echo "PARTUUID=${fstab_array[1]}  /boot vfat    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
+    echo "PARTUUID=${fstab_array[2]}  swap swap    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
 
     cp -a ${rootfs_dir}/boot/* ${boot_mnt}/
     cp ${euler_dir}/config.txt ${boot_mnt}/
-    echo "console=serial0,115200 console=tty1 root=/dev/mmcblk0p3 rootfstype=ext4 elevator=deadline rootwait" > ${boot_mnt}/cmdline.txt
+    echo "console=serial0,115200 console=tty1 root=PARTUUID=${fstab_array[3]} rootfstype=ext4 elevator=deadline rootwait" > ${boot_mnt}/cmdline.txt
 
     rm -rf ${rootfs_dir}/boot
     rsync -avHAXq ${rootfs_dir}/* ${root_mnt}
