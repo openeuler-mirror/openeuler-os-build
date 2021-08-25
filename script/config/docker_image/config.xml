@@ -34,7 +34,6 @@
         <package name="tar"/>
         <package name="vim-minimal"/>
         <package name="openEuler-release"/>
-        <package name="iproute"/>
     </packages>
     <packages type="bootstrap">
         <package name="filesystem"/>
