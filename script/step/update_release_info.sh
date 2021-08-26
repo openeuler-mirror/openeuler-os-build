@@ -11,6 +11,19 @@ function update_release_info()
     pkg="openEuler-latest-release"
     obs_pro="${OBS_STANDARD_PROJECT}"
 
+    waitime=9000
+    while [ $waitime -gt 0 ]
+    do
+        set +e
+        osc prjresults ${obs_pro} --csv | grep "aarch64/published" | grep "x86_64/published"
+        if [ $? -eq 0 ];then
+            break
+        fi
+        let waitime=$waitime-5
+        sleep 5
+        set -e
+    done
+
     [ -n "${temp_dir}" ] && rm -rf "${temp_dir}"
     mkdir "${temp_dir}"
     cd "${temp_dir}"
@@ -89,17 +102,6 @@ function update_release_info()
         osc ci -m "update isopackage_arm64.sdf"
         sleep 60
         waitime=6000
-        while [ $waitime -gt 0 ]
-        do
-            set +e
-            osc prjresults ${obs_pro} --csv | grep "aarch64/published" | grep "x86_64/published"
-            if [ $? -eq 0 ];then
-                break
-            fi
-            let waitime=$waitime-5
-            sleep 5
-            set -e
-        done
         while [ $waitime -gt 0 ]
         do
             set +e
