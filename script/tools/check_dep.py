@@ -87,7 +87,7 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
         para = "-c %s" % config
     else:
         para = "" 
-    cmd = "rm -rf %s && rm -rf %s && rm -rf %s && rm -rf %s/*.rpm" % (rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path)
+    cmd = "rm -rf %s && rm -rf %s && rm -rf %s && rm -rf %s/*.rpm && touch %s" % (rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, delete_rpm_list_file)
     if os.system(cmd) == 0:
         pass
     arch = platform.machine()
