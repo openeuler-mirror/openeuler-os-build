@@ -16,7 +16,7 @@ def kill_yumdownloader(rpm_path, thr):
         res = os.popen(cmd).read()
         time_now = time.time()
         time_differ = int(time_now - time_old)
-        if time_differ > 1800:
+        if time_differ > 3600:
             break
         if not thr.is_alive():
             break
@@ -106,7 +106,7 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
 
             time_now = time.time()
             time_differ = int(time_now - time_old)
-            if time_differ > 1800:
+            if time_differ > 3600:
                 break
 
             cmd="yumdownloader --resolve --installroot=%s --destdir=%s $(cat %s | awk '{print $1}' | tr '\n' ' ') %s" % (rpm_path, rpm_path, rpm_list_file, para)
