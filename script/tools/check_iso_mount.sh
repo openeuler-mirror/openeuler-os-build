@@ -39,7 +39,12 @@ function umount_iso()
     if [[ $res ]];then
         for iso_path in $res
         do
-            get_repose ssh -i ${key_file} -p ${port} root@${ip} umount ${iso_path}
+            if [[ ${iso_path} =~ ${latest_path} ]];then
+                continue
+            fi
+            if [[ ${iso_path} =~ ${release_path} ]];then
+                get_repose ssh -i ${key_file} -p ${port} root@${ip} umount ${iso_path}
+            fi
         done
     fi
 }
@@ -80,15 +85,17 @@ function get_iso_list()
     res=$(get_repose ssh -i ${key_file} -p ${port} root@${ip} ls -R ${latest_path}/ISO | grep iso | grep -v sha256sum | grep -v netinst)
     for iso_path in $res
     do
-        iso_name=`echo ${iso_path} | tr -d '\r'`
-        if [[ ${iso_name} =~ "source" ]];then
-            iso_name=${latest_path}/ISO/source/${iso_name}
-        elif [[ ${iso_name} =~ "aarch64" ]];then
-            iso_name=${latest_path}/ISO/aarch64/${iso_name}
-        else
-            iso_name=${latest_path}/ISO/x86_64/${iso_name}
+        if [[ ${iso_path} =~ ".iso" ]];then
+            iso_name=`echo ${iso_path} | tr -d '\r'`
+            if [[ ${iso_name} =~ "source" ]];then
+                iso_name=${latest_path}/ISO/source/${iso_name}
+            elif [[ ${iso_name} =~ "aarch64" ]];then
+                iso_name=${latest_path}/ISO/aarch64/${iso_name}
+            else
+                iso_name=${latest_path}/ISO/x86_64/${iso_name}
+            fi
+            iso_list="${iso_list} ${iso_name}" 
         fi
-        iso_list="${iso_list} ${iso_name}" 
     done
     echo ${iso_list}
 }
