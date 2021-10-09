@@ -18,7 +18,7 @@ PARAMS = ['all', 'set_release_dir', 'update_release_info', 'build_and_wait', 'ma
           'make_compile_env_storage', 'make_euleros_certdb', 'make_vm_qcow2', 'make_compile_tools', 'make_images_slim',
           'make_tools_lib_storage', 'make_container_tools', 'make_tools_debug_tools', 'make_upgrade_patch',
           'make_tools_dockertools', 'make_other_tools', 'upload_to_cmc', 'make_upload_cmc_image', 'make_iso_everything',
-          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms']
+          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms', 'make_edge_iso']
 
 
 class Build(object):
@@ -141,6 +141,7 @@ def usage():
     print("* make_tar                        *")
     print("* make_hmi                        *")
     print("* make_iso                        *")
+    print("* make_edge_iso                   *")
     print("* make_livecd                     *")
     print("* build_and_wait                  *")
     print("* make_iso_debug                  *")
