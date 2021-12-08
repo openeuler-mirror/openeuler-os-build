@@ -50,6 +50,8 @@ export SHA256SUM=".sha256sum"
 
 export jenkins_build="1"
 
+export checkdep=true
+
 OBS_REPO_CONF=$(find -iname "obs-repo.conf")
 cat>${OBS_REPO_CONF}<<EOF
 [main]
