@@ -60,12 +60,15 @@ class Build(object):
         self.env["ISCI"] = "0"
         return True
 
-    def set_obs_project(self, obs_standard_prj, obs_epol_prj, obs_extras_prj, obs_repo_ip):
+    def set_obs_project(self, obs_standard_prj, obs_epol_prj, obs_extras_prj, obs_repo_ip, check_dep):
         """
         obs_standard_prj:
         obs_epo_prj:
         obs_extras_prj:
         """
+        cmd = "sed -i 's/checkdep=.*/checkdep=%s/g' script/setup_env.sh" % check_dep
+        rmsg = os.popen(cmd).read()
+        print(rmsg)
         cmd = "sed -i 's/OBS_SERVER_IP=.*/OBS_SERVER_IP=%s/g' script/setup_env.sh" % obs_repo_ip
         rmsg = os.popen(cmd).read()
         print(rmsg)
@@ -178,12 +181,14 @@ if __name__ == "__main__":
                      help="obs extras project", required=True)
     par.add_argument("-ip", "--obs_repo_ip",
                      help="obs repo ip", required=True)
+    par.add_argument("-c", "--check_dep", default="false",
+                     help="check rpm dependence", required=False)
     args = par.parse_args()
 
     build = Build()
     build.set_obs_project(args.obs_standard_prj,
                           args.obs_epol_prj, args.obs_extras_prj,
-                          args.obs_repo_ip)
+                          args.obs_repo_ip, args.check_dep)
     one_step = args.step_info
     if one_step == "clean":
         ret = build.clean()

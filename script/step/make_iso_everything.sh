@@ -32,7 +32,9 @@ function make_iso_everything_inchroot()
     yum clean all -c "${yum_conf}"
 
     yum install python3 -y -c "${yum_conf}"
-    python3 ${BUILD_SCRIPT_DIR}/tools/check_dep.py -d /tmp -l allist -f check_dep.log -e ${UNABLE_INSTALL_LIST} -c "${yum_conf}" -r obs-standard
+    if [[ $checkdep == true ]];then
+        python3 ${BUILD_SCRIPT_DIR}/tools/check_dep.py -d /tmp -l allist -f check_dep.log -e ${UNABLE_INSTALL_LIST} -c "${yum_conf}" -r obs-standard
+    fi
 
     if rpm -q oemaker &> /dev/null; then
        yum remove oemaker -y
