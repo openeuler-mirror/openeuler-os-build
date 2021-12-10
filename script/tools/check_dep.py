@@ -51,8 +51,8 @@ def set_exclude(f, arch, err, rpm_list_file, delete_rpm_list_file):
         if "requires" in line:
             print(line)
             f.write("%s\n" % line)
-            if "package" in line:
-                pkg = line.split("package")[1].split("requires")[0].strip()
+            if " package " in line:
+                pkg = line.split(" package ")[1].split("requires")[0].strip()
                 if pkg not in rpm_list:
                     rpm_list.append(pkg)
         if "needed by" in line:
