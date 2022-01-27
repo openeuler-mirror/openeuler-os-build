@@ -112,6 +112,7 @@ function replace_release_server_ip()
         SSHPORT=""
     fi
     setupfile=`find -iname "setup_env.sh"`
+    get_key_file "/root/.ssh/"
     for((i=0;i<5;i++));
     do
         ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} ip addr | grep inet | awk '{print $2}' | grep -v '127' | awk -F '/' '{print $1}' | sed -n '1p')

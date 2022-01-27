@@ -82,11 +82,14 @@ def set_exclude(f, arch, err, rpm_list_file, delete_rpm_list_file):
 
 def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, config=None, repo=None):
     if config and repo:
-        para = "-c %s --repo %s" % (config, repo)
+        if "Epol" in repo:
+            para = "-c %s --repo obs-standard,%s" % (config, repo)
+        else:
+            para = "-c %s --repo %s" % (config, repo)
     elif config:
         para = "-c %s" % config
     else:
-        para = "" 
+        para = ""
     cmd = "rm -rf %s && rm -rf %s && rm -rf %s && rm -rf %s/*.rpm && touch %s" % (rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, delete_rpm_list_file)
     if os.system(cmd) == 0:
         pass

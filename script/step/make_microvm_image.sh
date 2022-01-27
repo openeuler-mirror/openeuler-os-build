@@ -132,9 +132,9 @@ make_micro_kernel(){
     kernel_config="kernel_config_${kernel_main_version}_${arch}"
     cp ${microvm_dir}/${kernel_config} .config
     if [ ${arch} == "x86_64" ]; then
-        make ARCH=x86_64
+        make ARCH=x86_64 -j8
     elif [ ${arch} == "aarch64" ]; then
-        make ARCH=arm64
+        make ARCH=arm64 -j8
     else
         LOG "${arch} is not supported yet."
         return 0
@@ -167,12 +167,12 @@ make_standard_kernel(){
     cp ${standard_vm_dir}/${kernel_config} .config
     if [ ${arch} == "x86_64" ]; then
         std_kernel_file=${std_kernel_file}z
-        make ARCH=x86_64
-        make bzImage
+        make ARCH=x86_64 -j8
+        make bzImage -j8
         mv arch/x86/boot/bzImage ${std_kernel_file}
     elif [ ${arch} == "aarch64" ]; then
         std_kernel_file=${std_kernel_file}.bin
-        make ARCH=arm64
+        make ARCH=arm64 -j8
         objcopy -O binary vmlinux ${std_kernel_file}
     else
         LOG "${arch} is not supported yet."
