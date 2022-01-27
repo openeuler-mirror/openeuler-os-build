@@ -69,9 +69,10 @@ class Build(object):
         cmd = "sed -i 's/checkdep=.*/checkdep=%s/g' script/setup_env.sh" % check_dep
         rmsg = os.popen(cmd).read()
         print(rmsg)
-        cmd = "sed -i 's/OBS_SERVER_IP=.*/OBS_SERVER_IP=%s/g' script/setup_env.sh" % obs_repo_ip
-        rmsg = os.popen(cmd).read()
-        print(rmsg)
+        if obs_repo_ip:
+            cmd = "sed -i 's/OBS_SERVER_IP=.*/OBS_SERVER_IP=%s/g' script/setup_env.sh" % obs_repo_ip
+            rmsg = os.popen(cmd).read()
+            print(rmsg)
         cmd = "sed -i 's/OBS_STANDARD_PROJECT=.*/OBS_STANDARD_PROJECT=%s/g' script/setup_env.sh" % obs_standard_prj
         rmsg = os.popen(cmd).read()
         print(rmsg)
@@ -180,7 +181,7 @@ if __name__ == "__main__":
     par.add_argument("-ex", "--obs_extras_prj",
                      help="obs extras project", required=True)
     par.add_argument("-ip", "--obs_repo_ip",
-                     help="obs repo ip", required=True)
+                     help="obs repo ip", required=False)
     par.add_argument("-c", "--check_dep", default="false",
                      help="check rpm dependence", required=False)
     args = par.parse_args()

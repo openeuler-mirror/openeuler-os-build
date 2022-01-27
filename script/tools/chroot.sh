@@ -20,7 +20,7 @@ function chroot_init()
     rm -f openEuler_chroot-*.noarch.rpm
     cp -a "${BUILD_SCRIPT_DIR}"/* "${OPENEULER_CHROOT_PATH}/home"
     mkdir -p "${OPENEULER_CHROOT_PATH}/root/.ssh/"
-    cp ~/.ssh/super_publish_rsa "${OPENEULER_CHROOT_PATH}/root/.ssh/"
+    cp /root/.ssh/super_publish_rsa "${OPENEULER_CHROOT_PATH}/root/.ssh/"
     if echo "${BUILD_SCRIPT_DIR}" | grep 'gcov-'; then
         sed -i '/VERSION=/ iexport CI_PROJECT="openeuler_ARM64_gcov"' "${OPENEULER_CHROOT_PATH}"/home/internal.sh
     fi
