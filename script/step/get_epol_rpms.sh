@@ -81,7 +81,7 @@ function get_epol_rpms_inchroot()
             TMP=`echo ${r%:*}`
             PKG=`echo ${TMP##*:}`
             VER=`echo ${r##*:}`
-            tmp_dir="/tmp/EPOL/multi_version/${PKG}-${VER}/${ARCH}"
+            tmp_dir="/tmp/EPOL/multi_version/${PKG}/${VER}/${ARCH}"
             mkdir -p ${tmp_dir}/Packages
             repo_url="http://${OBS_SERVER_IP}:82/${SUB_EPOL_MULTI_REPO_URL}/standard_${ARCH}"
             rm -rf /etc/yum.repos.d/*
@@ -95,11 +95,11 @@ function get_epol_rpms_inchroot()
                 rm -rf ${tmp_dir}/Packages/${unrpm}
             done
             createrepo -d ${tmp_dir}
-            SSH_CMD="mkdir -p ${RELEASE_DIR}/multi_version/${PKG}-${VER}"
+            SSH_CMD="mkdir -p ${RELEASE_DIR}/multi_version/${PKG}/${VER}"
             sshcmd "${SSH_CMD}"
-            sshscp "${tmp_dir}" "${RELEASE_DIR}/multi_version/${PKG}-${VER}/"
+            sshscp "${tmp_dir}" "${RELEASE_DIR}/multi_version/${PKG}/${VER}/"
             if [[ "${ARCH}" == "aarch64" ]];then
-                tmp_source="/tmp/EPOL/multi_version/${PKG}-${VER}/source"
+                tmp_source="/tmp/EPOL/multi_version/${PKG}/${VER}/source"
                 mkdir -p ${tmp_source}/Packages
                 yum-config-manager --add-repo "http://${OBS_SERVER_IP}:82/${SUB_EPOL_MULTI_REPO_URL}/standard_x86_64"
                 yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
@@ -110,8 +110,12 @@ function get_epol_rpms_inchroot()
                     rm -rf ${tmp_source}/Packages/${unrpm}
                 done
                 createrepo -d ${tmp_source}
-                sshscp "${tmp_source}" "${RELEASE_DIR}/multi_version/${PKG}-${VER}"
+                sshscp "${tmp_source}" "${RELEASE_DIR}/multi_version/${PKG}/${VER}/"
+                SSH_CMD="mkdir -p ${RELEASE_DIR}/update/multi_version/${PKG}/${VER}/source/Packages && createrepo -d ${RELEASE_DIR}/update/multi_version/${PKG}/${VER}/source"
+                sshcmd "${SSH_CMD}"
             fi
+            SSH_CMD="mkdir -p ${RELEASE_DIR}/update/multi_version/${PKG}/${VER}/${ARCH}/Packages && createrepo -d ${RELEASE_DIR}/update/multi_version/${PKG}/${VER}/${ARCH}"
+            sshcmd "${SSH_CMD}"
         done
     fi
     SSH_CMD="mkdir -p ${RELEASE_DIR}/update/main/${ARCH}/Packages ${RELEASE_DIR}/update/multi_version"
