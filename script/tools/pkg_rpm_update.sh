@@ -71,20 +71,27 @@ function copy_rpm(){
 	else
 		date_dir=${up_dir}
 	fi
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
 	fi
+	real_dir=${date_dir}
 	if [ ${pkg_place} == "standard" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${date_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/main"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/multi_version"
+		real_dir="${date_dir}|main"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/multi_version/${pkg}/${ver}"
+		real_dir="${date_dir}|multi_version|${pkg}|${ver}"
 	else
 		echo "package family is error!"
 		exit 1
@@ -138,7 +145,7 @@ fi
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
 	fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-	update_json_file "create" ${date_dir} ${json_file}
+	update_json_file "create" ${real_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 	check_update_rpm ${obs_proj} ${date_dir} ${pkg_place} ${update_key} ${pkglist} "create"
 }
@@ -150,8 +157,8 @@ function release_rpm(){
 	update_key=$3
 	pkg_place=$4
 	pkglist=$5	
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
@@ -159,6 +166,7 @@ function release_rpm(){
 	if [[ ${pkg_place} =~ "EPOL" ]];then
 		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
 	fi
+	real_dir=${release_dir}
 	if [ ${pkg_place} == "standard" ];then
 		repo_path="/repo/openeuler/${branch_name}/update"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${release_dir}"
@@ -169,13 +177,18 @@ function release_rpm(){
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}"
 		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update"
 	elif [ ${pkg_place} == "EPOL-main" ];then
-		repo_path="/repo/openeuler/${branch_name}/EPOL/update/main/update"
+		repo_path="/repo/openeuler/${branch_name}/EPOL/update/main"
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/main"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/main/update"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		repo_path="/repo/openeuler/${branch_name}/EPOL/update/multi_version/update"
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/multi_version"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/multi_version/update"
+		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/main"
+		real_dir="${release_dir}|main"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		repo_path="/repo/openeuler/${branch_name}/EPOL/update/multi_version/${pkg}/${ver}"
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/multi_version/${pkg}/${ver}"
+		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/multi_version/${pkg}/${ver}"
+		real_dir="${release_dir}|multi_version|${pkg}|${ver}"
 	else
 		echo "package family is error!"
 		exit 1
@@ -214,7 +227,7 @@ fi
 		done
 		echo "备份及发布${update_dir}成功!"
 		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-		update_json_file "release" ${release_dir} ${json_file}
+		update_json_file "release" ${real_dir} ${json_file}
 		scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 	else
 		pkgs=${pkglist//,/ }
@@ -288,11 +301,12 @@ fi
 			done
 			echo "备份及发布成功!"
 			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
+			release_pkg="${real_dir}/"
 			for pkg in ${pkgs}
 			do
-				release_pkg="${release_dir}/${pkg}"
-				update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
+				release_pkg="${release_pkg}${pkg}|"
 			done
+			update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
 			scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 		fi
 	fi
@@ -306,8 +320,8 @@ function update_rpm(){
 	up_dir=$4
 	pkg_place=$5
 	
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
@@ -318,8 +332,11 @@ function update_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
 	else
 		echo "package family is error!"
 		exit 1
@@ -343,8 +360,8 @@ function del_pkg_rpm(){
 	up_dir=$4
 	flag=$5
 	pkg_place=$6
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
@@ -355,8 +372,11 @@ function del_pkg_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
 	else
 		echo "package family is error!"
 		exit 1
@@ -421,20 +441,26 @@ function del_update_dir(){
 	update_key=$3
 	pkg_place=$4
 
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
 	fi
+	real_dir=${up_dir}
 	if [ ${pkg_place} == "standard" ];then
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
 		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version"
+		real_dir="${up_dir}|main"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
+		real_dir="${up_dir}|multi_version|${pkg}|${ver}"
 	else
 		echo "package family is error!"
 		exit 1
@@ -457,7 +483,7 @@ fi
 	fi
 	json_file="${branch_name}-update.json"
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-	update_json_file "del_update_dir" ${up_dir} ${json_file}
+	update_json_file "del_update_dir" ${real_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 }
 
@@ -470,8 +496,8 @@ function check_update_rpm(){
 	update_key=$4
 	pkglist=$5
 	action=$6
-	if [[ ${obs_proj} =~ "Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol}`
+	if [[ ${obs_proj} =~ ":Epol" ]];then
+		bak=`echo ${obs_proj%%:Epol*}`
 		branch_name=`echo ${bak//:/-}`
 	else
 		branch_name=`echo ${obs_proj//:/-}`
@@ -482,8 +508,11 @@ function check_update_rpm(){
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/main"
-	elif [ ${pkg_place} == "EPOL-multi_version" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/multi_version"
+	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
+		tmp=`echo ${obs_proj##*Multi-Version:}`
+		pkg=`echo ${tmp%:*}`
+		ver=`echo ${tmp#*:}`
+		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/multi_version/${pkg}/${ver}"
 	fi
 	pkg_aarch_path="${update_path}/aarch64/Packages"
 	pkg_x86_path="${update_path}/x86_64/Packages"
