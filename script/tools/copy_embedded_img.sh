@@ -16,12 +16,12 @@ cd ${latest_iso_dir}
 if [ ! -d embedded_img ];then
 	mkdir embedded_img
 else
-	echo "[INFO]: This ${latest_iso_dir} already have an embedded_img directory."
+	rm -rf embedded_img
+	echo "[INFO]: old embedded_img directory will deleted."
 fi
 ")
 	if [ -n "$res" ];then
 		echo $res
-		exit 0
 	fi
 	mkdir tmpdir
 	expect <<-END1
