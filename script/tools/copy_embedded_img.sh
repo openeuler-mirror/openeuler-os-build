@@ -25,8 +25,8 @@ fi
 	fi
 	mkdir tmpdir
 	expect <<-END1
-		set timeout 900
-		spawn scp -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=900 -r ${source_user}@${source_ip}:${source_dir}/* ./tmpdir/
+		set timeout 2700
+		spawn scp -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=2700 -r ${source_user}@${source_ip}:${source_dir}/* ./tmpdir/
 		expect {
 			-re "\[P|p]assword:" {
 				send "${source_pwd}\r"
@@ -45,7 +45,7 @@ fi
 		echo "[ERROR]: scp failed."
 		exit 1
 	else
-		scp -i ${ssh_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=900 -r tmpdir/* root@${dest_ip}:${latest_iso_dir}/embedded_img/
+		scp -i ${ssh_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=2700 -r tmpdir/* root@${dest_ip}:${latest_iso_dir}/embedded_img/
 		if [ $? -ne 0 ];then
 			echo "[ERROR]: scp embedded_img to dailybuild failed."
 			exit 1
