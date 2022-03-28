@@ -44,13 +44,13 @@ function get_epol_rpms_inchroot()
     tmp_dir="/tmp/EPOL/main/${ARCH}"
     mkdir -p ${tmp_dir}/Packages
     yum list --installroot="${tmp_dir}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v ".src" > ava_epol_lst
-    yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
-    rm -rf ${tmp_dir}/Packages/var
     unrpms=`cat ${UNABLE_INSTALL_LIST}`
     for unrpm in ${unrpms}
     do
-        rm -rf ${tmp_dir}/Packages/${unrpm}
+	    sed -i "/${unrpm}./d" ava_epol_lst
     done
+    yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
+    rm -rf ${tmp_dir}/Packages/var
     createrepo -d ${tmp_dir}
     sshscp "${tmp_dir}" "${RELEASE_DIR}/main/"
     if [[ "$ARCH" == "aarch64" ]];then
