@@ -11,6 +11,7 @@ function cp_embedded_img()
 	dest_ip=$5
 	ssh_key=$6
 	latest_iso_dir=$7
+        local copydir="${source_dir}"
 	res=$(ssh -i ${ssh_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 root@${dest_ip} "
 cd ${latest_iso_dir}
 if [ ! -d embedded_img ];then
@@ -23,10 +24,16 @@ fi
 	if [ -n "$res" ];then
 		echo $res
 	fi
-	mkdir tmpdir
+        echo source_user="${source_user}"
+        if [[ -z "${source_user}" ]];then
+            echo "copy files at this host"
+            ret=0
+        else
+        copydir="tmpdir"
+	mkdir "${copydir}"
 	expect <<-END1
 		set timeout 3600
-		spawn scp -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 -r ${source_user}@${source_ip}:${source_dir}/* ./tmpdir/
+		spawn scp -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 -r ${source_user}@${source_ip}:${source_dir}/* ./${copydir}
 		expect {
 			-re "\[P|p]assword:" {
 				send "${source_pwd}\r"
@@ -41,11 +48,15 @@ fi
 			exit [lindex \${result} 3]
 		}
 	END1
-	if [ $? -ne 0 ];then
+        ret=$?
+        fi
+	if [ $ret -ne 0 ];then
 		echo "[ERROR]: scp failed."
 		exit 1
 	else
-		scp -i ${ssh_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 -r tmpdir/* root@${dest_ip}:${latest_iso_dir}/embedded_img/
+                find ${copydir}/ -type f
+                echo "=================================="
+		scp -v -i ${ssh_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 -r "${copydir}"/* root@${dest_ip}:${latest_iso_dir}/embedded_img/
 		if [ $? -ne 0 ];then
 			echo "[ERROR]: scp embedded_img to dailybuild failed."
 			exit 1
@@ -56,4 +67,4 @@ fi
 	fi
 }
 
-cp_embedded_img $@
+cp_embedded_img "$@"
