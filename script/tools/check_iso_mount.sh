@@ -22,7 +22,7 @@ function get_latest()
     daily_dir=""
     while [[ ! ${daily_dir} ]]
     do
-        daily_dir=$(get_repose ssh -i ${key_file} -p ${port} root@${ip} ls -lr ${release_path} | grep openeuler- | grep -v ${version} | grep -v test | grep -v total | grep -v established | head -n 1 | awk '{print $9}' | tr -d '\r')
+        daily_dir=$(get_repose ssh -i ${key_file} -p ${port} root@${ip} ls -lr ${release_path} | grep openeuler- | grep -v ${version} | grep -v test | grep -v total | grep -v established | awk '{print $9}' | grep ^openeuler- | head -n 1 | tr -d '\r')
     done
     echo ${daily_dir}
 }
