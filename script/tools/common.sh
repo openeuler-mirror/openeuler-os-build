@@ -114,7 +114,7 @@ function replace_release_server_ip()
     setupfile=`find -iname "setup_env.sh"`
     for((i=0;i<5;i++));
     do
-        ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} ip addr | grep inet | awk '{print $2}' | grep -v '127' | awk -F '/' '{print $1}' | sed -n '1p')
+        ret=$(ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 root@${RELEASE_SERVER_IP} ip addr | grep inet | awk '{print $2}' | grep -v '127' | awk -F '/' '{print $1}' | sed -n '1p')
         if [ -n "$ret" ];then
             sed -i "s/RELEASE_SERVER_IP=\"${RELEASE_SERVER_IP}\"/RELEASE_SERVER_IP=\"$ret\"/g" ${setupfile}
             if [ "$ret" != "${RELEASE_SERVER_IP}" ];then
