@@ -171,29 +171,28 @@ def write_email_message(final_result, lastbuildnumber):
     """
     write iso result message
     """
+    msg = ""
     if final_result:
         log.info(final_result)
-        msg = ""
         line = ""
         job_url = ""
-        main_job_url = init_url + "/Main-" + args.branch + "-build/" + lastbuildnumber
+        main_job_url = init_url + "/Main-" + args.branch + "-build/" + lastbuildnumber + "/console"
         for key,value in final_result.items():
-            sub_url = init_url + "/" + key
-            job_url = job_url + "<h4>Sub job jenkins url: <a href='{0}'>{0}</a></h4>".format(sub_url)
+            sub_url = init_url + "/" + key  + "/console"
+            job_url = job_url + "<h4>构建标准ISO任务的日志链接: <a href='{0}'>{0}</a></h4>".format(sub_url)
             for tmp in value:
                 line = line + """
                 <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>
                 """ %(tmp['type'], tmp['binary'], tmp['source'], tmp['project'], tmp['arch'])
         msg = """
         <h2>Hello:</h2>
-        <h3>Main job jenkins url: <a href="%s">%s</a></h3>
+        <h3>总任务的日志链接: <a href="%s">%s</a></h3>
         %s
         <table border=8>
-        <tr><th>ERROR_TYPE</th><th>BINARY_PACKAGE_NAME</th><th>SOURCE_PACKAGE_NAME</th><th>OBS_PROJECT</th><th>ARCHITECTURE</th></tr>
+        <tr><th>错误类型</th><th>二进制包名</th><th>源码包名</th><th>OBS工程</th><th>架构</th></tr>
         %s
         </table>
-        <p>Please solve it as soon as possible.</p>
-        <p>Thanks ~^V^~!!!</p>
+        <p>请尽快解决，谢谢~^V^~!!!</p>
         """ % (main_job_url, main_job_url, job_url, line)
     return msg
 
