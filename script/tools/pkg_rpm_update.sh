@@ -222,7 +222,7 @@ fi
 			# release rpm to website
 			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${path}/Packages/*.rpm ./$path/
 			scp -i ${update_key} -o StrictHostKeyChecking=no ./$path/*.rpm root@${release_ip}:${repo_path}/${path}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && createrepo -d ${path}"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${path}/repodata && createrepo -d ${path}"
 			rm -rf $path
 		done
 		echo "备份及发布${update_dir}成功!"
@@ -296,7 +296,7 @@ fi
 				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch}"
 				# release some packages binaries rpm to website
 				scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
-				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && createrepo -d ${arch}"
+				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch}"
 				rm -rf ${arch}
 			done
 			echo "备份及发布成功!"
