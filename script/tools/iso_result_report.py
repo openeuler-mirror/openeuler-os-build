@@ -90,7 +90,7 @@ def search_source_rpm(bin_rpm):
     search bin rpm source name
     """
     source_rpm = None
-    cmd = "dnf repoquery --source %s 2>/dev/null" % bin_rpm
+    cmd = "dnf repoquery --source %s 2>/dev/null | grep -v \"none\" | head -n 1" % bin_rpm
     res = os.popen(cmd).read()
     if res:
         for line in res.split('\n'):
