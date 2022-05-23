@@ -133,12 +133,19 @@ def check_make_iso_output(subjob_url_list, short_list):
                     result.append(tmp)
             
             # install rpm failed
-            re_cp = re.compile(r'Problem .*')
+            re_cp = re.compile(r'Problem.*')
             str_ = re.findall(re_cp, output)
             if str_:
-                for s in str_:
+                for s in output.split('\n'):
                     tmp = {}
-                    bin_rpm = re.search('package (.*)requires', s).group(1).rsplit('-', 2)[0]
+                    if "requires" in s:
+                        bin_rpm = re.search('package (.*)requires', s).group(1).rsplit('-', 2)[0]
+                    elif "needed by" in s:
+                        bin_rpm = s.split("needed by")[1].rsplit('-', 2)[0]
+                    elif "obsoletes" in s and "provided by" in s:
+                        bin_rpm = s.split("provided by")[1].rsplit('-', 2)[0]
+                    else:
+                        continue
                     if bin_rpm in bin_rpm_list:
                         continue
                     bin_rpm_list.append(bin_rpm)
@@ -161,8 +168,8 @@ def check_make_iso_output(subjob_url_list, short_list):
                 tmp['project'] = args.branch.replace('-', ':')
                 tmp['arch'] = surl.split('-')[2]
                 result.append(tmp)
-            
-            final_result.setdefault(surl, result)
+            if result: 
+                final_result.setdefault(surl, result)
         else:
             log.info("%s build iso succeed!" % surl)
     return final_result
