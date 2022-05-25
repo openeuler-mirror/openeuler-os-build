@@ -72,7 +72,7 @@ download_code()
 {
     mkdir -p "${SRC_DIR}"/
     rm -f "${SRC_DIR}"/code.list
-    update_code_repo openeuler/yocto-meta-openeuler openEuler-22.03-LTS
+    update_code_repo openeuler/yocto-meta-openeuler "$YOCTO_BRANCH"
 }
 
 install_python()
@@ -146,6 +146,7 @@ which python
 python --version | grep " 3" || ln -sf /usr/bin/python3 /usr/local/bin/python
 fi
 
+YOCTO_BRANCH="master"
 download_code
 #download kernel by tag, cannot change tag automatically
 rm -rf "${SRC_DIR}"/kernel-5.10
