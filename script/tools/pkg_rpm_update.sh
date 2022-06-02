@@ -250,7 +250,8 @@ fi
 				else
 					if [[ ${flag} == 0 ]];then
 						src_rpm=`cat binrpmlist | grep "src.rpm"`
-						src_rpm_name=`echo ${src_rpm%%-[0-9]*}`
+						tmp_name=`echo ${src_rpm%-*}`
+						src_rpm_name=`echo ${tmp_rpm%-*}`
 						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep ${src_rpm_name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
 							echo "$src_rpm_name-xxx.oe1.src.rpm" >> NOT_FOUND
@@ -266,7 +267,8 @@ fi
 					sed -i '/src.rpm/d' binrpmlist
 					for line in `cat binrpmlist`
 					do
-						name=`echo ${line%%-[0-9]*}`
+						tmp_name=`echo ${line%-*}`
+						name=`echo ${tmp_name%-*}`
 						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep ${name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
 							echo "${name}-xxx.oe1.${arch}.rpm" >> NOT_FOUND
@@ -394,26 +396,24 @@ function del_pkg_rpm(){
 		else
 			src_rpm=`cat x86_rpmlist.txt | grep "src.rpm"`
 		fi
-		rpm_name=`echo ${src_rpm%%-[0-9]*}`
-		tmp=`echo ${src_rpm%%.oe1*}`
-		version=`echo ${tmp#*-}`
-		if [ `echo ${version} | grep ^[a-zA-Z]` ];then
-			version=`echo ${version#*-}`
-		fi
-		big_version=`echo ${version%%-*}`
+		tmp_name=`echo ${src_rpm%-*}`
+		rpm_name=`echo ${tmp_name%-*}`
+		big_version=`echo ${tmp_name##*-}`
 		sed -i '/src.rpm/d' aarch_rpmlist.txt
 		sed -i '/src.rpm/d' x86_rpmlist.txt
 		if [ -s aarch_rpmlist.txt ];then
 			for line in `cat aarch_rpmlist.txt`
 			do
-				name=`echo ${line%%-[0-9]*}`
+				tmp_name=`echo ${line%-*}`
+				name=`echo ${tmp_name%-*}`
 				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 			done
 		fi
 		if [ -s x86_rpmlist.txt ];then
 			for line2 in `cat x86_rpmlist.txt`
 			do
-				name2=`echo ${line2%%-[0-9]*}`
+				tmp_name=`echo ${line2%-*}`
+				name2=`echo ${tmp_name%-*}`
 				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_x86_path} && ls ${name2}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 			done
 		fi
