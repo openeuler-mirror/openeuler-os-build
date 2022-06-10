@@ -131,6 +131,9 @@ TOOLS_INSTALL_DIR="/opt/buildtools"
 URL_PREFIX="https://gitee.com/"
 
 is_install_tools=$1
+meta_branch="$2"
+software_branch="$3"
+
 if [[ "$is_install_tools" == "yes" ]];then
 download_gcc
 #install_ninja
@@ -147,8 +150,12 @@ python --version | grep " 3" || ln -sf /usr/bin/python3 /usr/local/bin/python
 fi
 
 YOCTO_BRANCH="master"
+if [[ -n "$meta_branch" ]]; then
+    YOCTO_BRANCH="$meta_branch"
+fi
+
 download_code
 #download kernel by tag, cannot change tag automatically
 rm -rf "${SRC_DIR}"/kernel-5.10
-sh "${SRC_DIR}"/yocto-meta-openeuler/scripts/download_code.sh
+sh "${SRC_DIR}"/yocto-meta-openeuler/scripts/download_code.sh "" "$software_branch"
 exit $?
