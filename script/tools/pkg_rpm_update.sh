@@ -251,7 +251,7 @@ fi
 					if [[ ${flag} == 0 ]];then
 						src_rpm=`cat binrpmlist | grep "src.rpm"`
 						tmp_name=`echo ${src_rpm%-*}`
-						src_rpm_name=`echo ${tmp_rpm%-*}`
+						src_rpm_name=`echo ${tmp_name%-*}`
 						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep ${src_rpm_name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
 							echo "$src_rpm_name-xxx.oe1.src.rpm" >> NOT_FOUND
