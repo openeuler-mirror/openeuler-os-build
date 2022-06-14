@@ -52,10 +52,12 @@ local is_download_code="$3"
 local is_install_tools="$4"
 [[ -z "$is_download_code" ]] && { is_download_code="yes"; }
 [[ -z "$is_install_tools" ]] && { is_install_tools="no"; }
+local meta_branch="$5"
+local software_branch="$6"
 chmod a+r "${SCRIPTS_DIR}"/*.sh
 ##download codes and install tools
 local datetime="$(date +%Y%m%d%H%M%S)"
-[[ "${is_download_code}" == "yes" ]] && sh -x "${SCRIPTS_DIR}"/download.sh "$is_install_tools"
+[[ "${is_download_code}" == "yes" ]] && sh -x "${SCRIPTS_DIR}"/download.sh "$is_install_tools" "$meta_branch" "$software_branch"
 #[[ -z "${archlist}" ]] && archlist="qemu-arm qemu-aarch64 raspberrypi4-64"
 [[ -z "${archlist}" ]] && archlist="arm-std aarch64-std aarch64-pro raspberrypi4-64"
 #delete log file from dnf
