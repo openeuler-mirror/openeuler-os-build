@@ -21,6 +21,7 @@ import logging
 import argparse
 import requests
 import smtplib
+import yaml
 from email.mime.text import MIMEText
 from email.header import Header
 from lxml import etree
@@ -39,12 +40,41 @@ par.add_argument("-su", "--server_user", help="email user name", required=True)
 par.add_argument("-sw", "--server_passwd", help="email user password", required=True)
 par.add_argument("-tu", "--to_addr", help="recive email user", required=True)
 par.add_argument("-b", "--branch", help="branch name", required=True)
-par.add_argument("-num", "--buildnumber", help="main iso job build number", required=False, default=None)
+par.add_argument("-num", "--buildnumber", help="main check rpm job build number", required=False, default=None)
 args = par.parse_args()
 args.passwd = parse.quote_plus(args.passwd)
 
 init_url = "https://openeulerjenkins.osinfra.cn/job/openEuler-OS-build/job"
 baseurl = "https://%s:%s@openeulerjenkins.osinfra.cn/job/openEuler-OS-build/job" % (args.user, args.passwd)
+current_path = os.getcwd()
+
+def read_yaml():
+    """
+    read yaml file
+    """
+    file_path = os.path.join(current_path, "packages_duty.yaml")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        file_msg = yaml.load(f, Loader=yaml.FullLoader)
+        pkg_dict = {}
+        for tmp in file_msg['package_duty']:
+            pkg_dict.update({tmp['package']:[tmp['team'], tmp['people']]})
+    return pkg_dict
+
+def search_source_rpm(bin_rpm):
+    """
+    search bin rpm source name
+    """
+    source_rpm = None
+    cmd = "dnf repoquery --source %s 2>/dev/null | grep -v \"none\" | head -n 1" % bin_rpm
+    res = os.popen(cmd).read()
+    if res:
+        for line in res.split('\n'):
+            if "src.rpm" in line:
+                source_rpm = res.rsplit('-', 2)[0]
+                break
+            else:
+                log.error("%s failed" % cmd)
+    return source_rpm 
 
 def git_clone():
     """
@@ -114,7 +144,7 @@ def get_subjob_url(lastbuildnumber):
             job_url_list.append(job_url)
     return job_url_list, short_job_url
 
-def parse_msg(subjob_url_list, short_list, exclude_rpmlist):
+def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
     """
     parse jenkins job build log
     """
@@ -136,14 +166,25 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist):
                     pkglist.append(line)
                     allpkgs.append(line)
         final_result.setdefault(surl, pkglist)
-    log.info("Final cannot install rpm:%s" % allpkgs)
-    return final_result, allpkgs
+    log.info("Final cannot install rpm:%s" % set(allpkgs))
+    failed_pkg = []
+    for bin_rpm in allpkgs:
+        tmp = {}
+        source_rpm = search_source_rpm(bin_rpm)
+        tmp['bin_rpm'] = bin_rpm
+        tmp['source_rpm'] = source_rpm
+        data = file_msg.get(source_rpm, [None, None])
+        tmp['team'] = data[0]
+        tmp['people'] = data[1]
+        failed_pkg.append(tmp)
+    return final_result, failed_pkg
 
-def write_email_message(final_result, allpkgs, lastbuildnumber):
+def write_email_message(final_result, failed_pkg, lastbuildnumber):
     """
     write message
     """
-    if final_result:
+    msg = ""
+    if final_result and failed_pkg:
         log.info(final_result)
         msg = ""
         pkgs = ""
@@ -161,10 +202,12 @@ def write_email_message(final_result, allpkgs, lastbuildnumber):
             else:
                 arch = "x86_64"
             line = line + """
-            <tr>%s二进制范围<td></td><td>%s</td><td><a href="%s">%s</a></td></tr>
+            <tr><td>%s二进制范围</td><td>%s</td><td><a href="%s">%s</a></td></tr>
             """ % (check_item, arch, sub_url, sub_url)
-        for pkg in list(set(allpkgs)):
-            pkgs = pkgs + "%s<br>" %(pkg)
+        for tmp in failed_pkg:
+            pkgs = pkgs + """
+            <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>
+            """ % (tmp['bin_rpm'], tmp['source_rpm'], tmp['team'], tmp['people'])
         msg = """
         <h2>Hello:</h2>
         <h3>根据OBS工程repo源检查软件包安装问题，其日志链接如下：</h3>
@@ -172,8 +215,11 @@ def write_email_message(final_result, allpkgs, lastbuildnumber):
         <tr><th>安装校验项</th><th>架构</th><th>jenkins任务地址</th></tr>
         %s
         </table>
-        <p>%s分支的软件包二进制安装失败，列表如下：</p>
+        <p>%s分支的软件包二进制安装失败，如下：</p>
+        <table border=8>
+        <tr><th>二进制包名</th><th>源码包名</th><th>责任团队</th><th>责任人</th></tr>
         %s
+        </table>
         <p>这些问题会阻塞ISO的构建，请尽快解决，谢谢~^V^~!!!</p>
         """ % (line, args.branch, pkgs)
     return msg
@@ -203,7 +249,8 @@ if not args.buildnumber:
 else:
     lastbuildnumber = args.buildnumber
 job_url_list, short_job_url = get_subjob_url(lastbuildnumber)
-final_result, allrpm = parse_msg(job_url_list, short_job_url, exclude_rpmlist)
+file_msg = read_yaml()
+final_result, allrpm = parse_msg(job_url_list, short_job_url, exclude_rpmlist, file_msg)
 message = write_email_message(final_result, allrpm, lastbuildnumber)
 if message:
     send_email(message)
