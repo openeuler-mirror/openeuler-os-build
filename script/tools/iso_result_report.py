@@ -20,6 +20,7 @@ import logging
 import argparse
 import requests
 import smtplib
+import yaml
 from email.mime.text import MIMEText
 from email.header import Header
 from lxml import etree
@@ -44,7 +45,19 @@ args.passwd = parse.quote_plus(args.passwd)
 
 init_url = "https://openeulerjenkins.osinfra.cn/job/openEuler-OS-build/job"
 baseurl = "https://%s:%s@openeulerjenkins.osinfra.cn/job/openEuler-OS-build/job" % (args.user, args.passwd)
+current_path = os.getcwd()
 
+def read_yaml():
+    """
+    read yaml file
+    """
+    file_path = os.path.join(current_path, "packages_duty.yaml")
+    with open(file_path, 'r', encoding='utf-8') as f:
+        file_msg = yaml.load(f, Loader=yaml.FullLoader)
+    pkg_dict = {}
+    for tmp in file_msg['package_duty']:
+        pkg_dict.update({tmp['package']:[tmp['team'], tmp['people']]})
+    return pkg_dict
 
 def get_requests_result(url):
     """
@@ -101,7 +114,7 @@ def search_source_rpm(bin_rpm):
         log.error("%s failed" % cmd)
     return source_rpm
 
-def check_make_iso_output(subjob_url_list, short_list):
+def check_make_iso_output(subjob_url_list, short_list, file_msg):
     """
     check iso build log
     """
@@ -125,11 +138,14 @@ def check_make_iso_output(subjob_url_list, short_list):
                         continue
                     bin_rpm_list.append(bin_rpm)
                     source_rpm = search_source_rpm(bin_rpm)
+                    data = file_msg.get(source_rpm, [None, None])
                     tmp['type'] = "Not-found-in-obs-repo"
                     tmp['binary'] = bin_rpm
                     tmp['source'] = source_rpm
                     tmp['project'] = args.branch.replace('-', ':')
                     tmp['arch'] = surl.split('-')[2]
+                    tmp['team'] = data[0]
+                    tmp['people'] = data[1]
                     result.append(tmp)
             
             # install rpm failed
@@ -150,11 +166,14 @@ def check_make_iso_output(subjob_url_list, short_list):
                         continue
                     bin_rpm_list.append(bin_rpm)
                     source_rpm = search_source_rpm(bin_rpm)
+                    data = file_msg.get(source_rpm, [None, None])
                     tmp['type'] = "Package-install-problem"
                     tmp['binary'] = bin_rpm
                     tmp['source'] = source_rpm
                     tmp['project'] = args.branch.replace('-', ':')
                     tmp['arch'] = surl.split('-')[2]
+                    tmp['team'] = data[0]
+                    tmp['people'] = data[1]
                     result.append(tmp)
             
             # exec lorax failed
@@ -167,6 +186,8 @@ def check_make_iso_output(subjob_url_list, short_list):
                 tmp['source'] = None
                 tmp['project'] = args.branch.replace('-', ':')
                 tmp['arch'] = surl.split('-')[2]
+                tmp['team'] = "OBS"
+                tmp['people'] = None
                 result.append(tmp)
             if result: 
                 final_result.setdefault(surl, result)
@@ -189,14 +210,14 @@ def write_email_message(final_result, lastbuildnumber):
             job_url = job_url + "<h4>构建标准ISO任务的日志链接: <a href='{0}'>{0}</a></h4>".format(sub_url)
             for tmp in value:
                 line = line + """
-                <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>
-                """ %(tmp['type'], tmp['binary'], tmp['source'], tmp['project'], tmp['arch'])
+                <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>
+                """ %(tmp['type'], tmp['binary'], tmp['source'], tmp['project'], tmp['arch'], tmp['team'], tmp['people'])
         msg = """
         <h2>Hello:</h2>
         <h3>总任务的日志链接: <a href="%s">%s</a></h3>
         %s
         <table border=8>
-        <tr><th>错误类型</th><th>二进制包名</th><th>源码包名</th><th>OBS工程</th><th>架构</th></tr>
+        <tr><th>错误类型</th><th>二进制包名</th><th>源码包名</th><th>OBS工程</th><th>架构</th><th>责任团队</th><th>责任人</th></tr>
         %s
         </table>
         <p>请尽快解决，谢谢~^V^~!!!</p>
@@ -221,12 +242,14 @@ def send_email(message):
     except smtplib.SMTPException as e:
         raise SystemExit("send email failed, reason:%s" % e)
 
+
 if not args.buildnumber:
     lastbuildnumber = get_main_job_last_build()
 else:
     lastbuildnumber = args.buildnumber
 subjob_url_list, short_list = get_subjob_url(lastbuildnumber)
-final_result = check_make_iso_output(subjob_url_list, short_list)
+file_msg = read_yaml()
+final_result = check_make_iso_output(subjob_url_list, short_list, file_msg)
 message = write_email_message(final_result, lastbuildnumber)
 if message:
     send_email(message)
