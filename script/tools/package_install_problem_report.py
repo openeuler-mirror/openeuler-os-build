@@ -164,9 +164,10 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
             if flag:
                 if line and line not in exclude_rpmlist:
                     pkglist.append(line)
-                    allpkgs.append(line)
+                    if line not in allpkgs:
+                        allpkgs.append(line)
         final_result.setdefault(surl, pkglist)
-    log.info("Final cannot install rpm:%s" % set(allpkgs))
+    log.info("Final cannot install rpm:%s" % allpkgs)
     failed_pkg = []
     for bin_rpm in allpkgs:
         tmp = {}
