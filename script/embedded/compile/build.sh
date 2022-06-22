@@ -52,14 +52,18 @@ local is_download_code="$3"
 local is_install_tools="$4"
 [[ -z "$is_download_code" ]] && { is_download_code="yes"; }
 [[ -z "$is_install_tools" ]] && { is_install_tools="no"; }
-local meta_branch="$5"
-local software_branch="$6"
+local build_image_name="$5"
+local meta_branch="$6"
+local software_branch="$7"
+
 chmod a+r "${SCRIPTS_DIR}"/*.sh
 ##download codes and install tools
 local datetime="$(date +%Y%m%d%H%M%S)"
 [[ "${is_download_code}" == "yes" ]] && sh -x "${SCRIPTS_DIR}"/download.sh "$is_install_tools" "$meta_branch" "$software_branch"
 #[[ -z "${archlist}" ]] && archlist="qemu-arm qemu-aarch64 raspberrypi4-64"
 [[ -z "${archlist}" ]] && archlist="arm-std aarch64-std aarch64-pro raspberrypi4-64"
+[[ -z "${build_image_name}" ]] && build_image_name="openeuler-image"
+
 #delete log file from dnf
 rm -f /tmp/hawkey.log
 for arch in $archlist
@@ -83,8 +87,8 @@ export DATETIME="$datetime"
 source "${SRC_DIR}"/yocto-meta-openeuler/scripts/compile.sh "${PLATFORM}" "${BUILD_DIR}" > "${BUILD_DIR}"/source.log
 bitbake_opt="\$(grep "You can now run " ${BUILD_DIR}/source.log | awk -F"'" '{print \$2}')"
 #\${bitbake_opt}
-echo "bitbake openeuler-image"
-bitbake openeuler-image
+echo "bitbake ${build_image_name}"
+bitbake ${build_image_name}
 EOF
 
     sudo -E -u "${username}" sh -x "${BUILD_DIR}"/build.sh || exit 1
