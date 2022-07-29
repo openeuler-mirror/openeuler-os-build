@@ -110,6 +110,7 @@ source "${BUILD_SCRIPT_DIR}"/step/get_epol_rpms.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_debug.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_netinst_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_edge_iso.sh
+source "${BUILD_SCRIPT_DIR}"/step/make_desktop_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_debug_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everysrc.sh
