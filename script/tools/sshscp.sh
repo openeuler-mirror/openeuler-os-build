@@ -101,6 +101,26 @@ function sshcmd_comm()
 	return $?
 }
 
+function sshcmd_stable()
+{
+	srccommand="$1"
+	descommand="$2"
+	local r_option="$3"
+	timeout=180
+
+        if [ "x${srccommand}" = "x" -o "x${descommand}" = "x" ];then
+		echo "srccommand or descommand is empty."
+                exit 1
+        fi
+
+	if [ "${r_option}" = "1" ]; then
+		r_option="-r"
+	else
+		r_option=""
+	fi
+
+	scp -i ~/.ssh/super_publish_rsa -o "ConnectTimeout ${timeout}" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 ${SCPPORT} "${r_option}" "${srccommand}" "${descommand}"
+}
 
 ######################
 # 清空/root/.ssh/known_hosts 文件
@@ -156,6 +176,6 @@ fi
 delete_known_hosts
 for src_item in $(echo "${src}")
         do
-        sshcmd_comm "${src_item}" "${des}" "${loginpassword}" "${r_option_value}"
+        sshcmd_stable "${src_item}" "${des}" "${r_option_value}"
         done
 exit $?

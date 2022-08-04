@@ -117,6 +117,28 @@ do
         esac
 done
 
+
+function sshcmd_stable()
+{
+	cmd="$1"
+	destip="$2"
+	user=${3-root}
+	timeout=180
+
+	if [ "x${destip}" = "x" ]; then
+                destip="${testmachine}"
+        fi
+        if [ "x${destip}" = "x" -o "x${cmd}" = "x" ];then
+                echo "destip or cmd is empty."
+                exit 1
+        fi
+
+	cmd=${cmd//\"/\\\"}
+	cmd=${cmd//\$/\\\$}
+
+	ssh -i ~/.ssh/super_publish_rsa -o "ConnectTimeout ${timeout}" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 ${SSHPORT} "${user}@${destip}" "${cmd}"
+}
+
 ######################
 # delet known hosts
 # Globals:
@@ -147,6 +169,6 @@ if [ "x${execcmd}" = "x" -o "x${machineip}" = "x" ];then
 fi
 
 delete_known_hosts
-sshcmd_comm "${execcmd}" "${machineip}" "${loginpassword}" "${loginuser}"
+sshcmd_stable "${execcmd}" "${machineip}" "${loginuser}"
 
 exit $?
