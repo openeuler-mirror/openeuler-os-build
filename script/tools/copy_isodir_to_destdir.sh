@@ -10,9 +10,10 @@ branch=$1
 dirname=$2
 ip=$3
 update_key=$4
+prefix=$5
 branch_path="/repo/openeuler/dailybuild/${branch}"
 iso_path="${branch_path}/${dirname}"
-test_dirname="test_${dirname}"
+test_dirname="${prefix}_${dirname}"
 
 ssh -i ${update_key} -o StrictHostKeyChecking=no -o LogLevel=ERROR -o ServerAliveInterval=60 root@${ip} "
 if [ -d ${branch_path} ];then
