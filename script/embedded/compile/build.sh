@@ -85,6 +85,9 @@ whoami || echo ""
 rm -f "${BUILD_DIR}"/source.log
 export DATETIME="$datetime"
 source "${SRC_DIR}"/yocto-meta-openeuler/scripts/compile.sh "${PLATFORM}" "${BUILD_DIR}" > "${BUILD_DIR}"/source.log
+if [ -e /opt/buildtools/nativesdk/environment-setup-x86_64-pokysdk-linux ]; then
+    source /opt/buildtools/nativesdk/environment-setup-x86_64-pokysdk-linux
+fi
 bitbake_opt="\$(grep "You can now run " ${BUILD_DIR}/source.log | awk -F"'" '{print \$2}')"
 #\${bitbake_opt}
 echo "bitbake ${build_image_name}"
