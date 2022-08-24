@@ -19,9 +19,8 @@ export WORK_DIR="${OUTPUT_PATH}/work_dir/${CI_PROJECT}/"
 set +ue
 export RELEASE_ROOT_PATH=${RELEASE_ROOT_PATH}
 if [ "x${jenkins_build}" != "x" ]; then
-    export USER="root"
-    export PASSWD="${dogshengpwd81}"
-    echo $dogshengpwd81 > /home/pwd.list
+    export USER=""
+    export PASSWD=""
     export HTTP_DIR=${RELEASE_ROOT_PATH}
     export PRE_VERSION=${RELEASE_VERSION_DIR}
 else
@@ -40,8 +39,8 @@ export OPENEULER_CHROOT_PATH="/usr1/openeuler"
 export ICP_CI_IP=""
 export MOUNTDIR_MASTER=""
 export MOUNTDIR_AGENT=""
-export MASTER_USER="Administrator"
-export MASTER_PASSWD="openeuler_123"
+export MASTER_USER=""
+export MASTER_PASSWD=""
 
 #for gerrit
 export GERRIT_BRANCH="next"

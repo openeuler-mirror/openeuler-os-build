@@ -4,8 +4,8 @@
 set -e
 execcmd=""
 machineip=""
-loginuser=root
-loginpassword=huawei
+loginuser=""
+loginpassword=""
 
 
 ######################
@@ -21,8 +21,7 @@ function sshcmd_comm()
 	cmd="$1"
 	testip="$2"
 	password=${3}
-    echo ${password}
-	user=${4-root}
+	user=${4}
 	timeout=180
 
 	if [ "$1x" = "x" ]; then

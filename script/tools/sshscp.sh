@@ -17,7 +17,7 @@ function sshcmd_comm()
 
 	srccommand="$1"
 	descommand="$2"
-	password=${3-huawei}
+	password=${3}
 	local r_option="$4"
 	timeout=180
 	if [ "$1x" = "x" ]; then
@@ -150,8 +150,8 @@ function usage()
 
 src=""
 des=""
-loginuser="root"
-loginpassword="huawei"
+loginuser=""
+loginpassword=""
 
 while getopts "p:s:d:hr" OPTIONS
 do

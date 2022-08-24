@@ -8,8 +8,8 @@ ARCH="ARM64"
 TIME=""
 
 ####RELEASE##########
-RELEASE_USER="root"
-RELEASE_PASSWD="$dogshengpwd82"
+RELEASE_USER=""
+RELEASE_PASSWD=""
 
 CI_PROJECT="openeuler_ARM64"
 HTTP_RELEASE_DIR="http://${RELEASE_IP}/internal_use_only/EulerOS/${VERSION_C}/${CI_PROJECT}"
@@ -19,9 +19,9 @@ RELEASE_CONFIG_FILE="${SSH_RELEASE_DIR}/config_${PRODUCT}"
 
 
 ############################for pxe#####################
-PXE_SERVER_IP="10.175.124.178"
-PXE_SERVER_USER="root"
-PXE_SERVER_PASSWD="huawei1abc"
+PXE_SERVER_IP=""
+PXE_SERVER_USER=""
+PXE_SERVER_PASSWD=""
 pxe_tftpboot="/tftpboot"
 pxe_config_dir="${pxe_tftpboot}/pxelinux.cfg"
 pxe_boot_dir="${pxe_tftpboot}/boot_image/${VERSION_C}/${PRODUCT}/${ARCH}/${VERSION_B}"
