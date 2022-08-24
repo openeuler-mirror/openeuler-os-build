@@ -82,6 +82,7 @@ function get_iso_list()
     ip=$3
     port=$4
     iso_list=
+    get_repose ssh -i ${key_file} -p ${port} root@${ip} ls ${latest_path} | grep ISO
     res=$(get_repose ssh -i ${key_file} -p ${port} root@${ip} ls -R ${latest_path}/ISO | grep iso | grep -v sha256sum | grep -v netinst)
     for iso_path in $res
     do
@@ -105,7 +106,13 @@ release_path=$1
 key_file=$2
 dailybuild_ip=$3
 dailybuild_port=$4
-latest_path=${release_path}/$(get_latest ${release_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
+target_dir=$5
+if [[ -n "${target_dir}" ]];then
+    target_dir=${target_dir// /}
+    latest_path=${release_path}/${target_dir}
+else
+    latest_path=${release_path}/$(get_latest ${release_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
+fi
 iso_list=$(get_iso_list ${latest_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
 umount_iso ${latest_path} ${key_file} ${dailybuild_ip} ${dailybuild_port}
 check_iso_mount "${iso_list}" ${key_file} ${dailybuild_ip} ${dailybuild_port}
