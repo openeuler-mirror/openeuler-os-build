@@ -4,7 +4,7 @@
 set -e
 execcmd=""
 machineip=""
-loginuser=""
+loginuser="root"
 loginpassword=""
 timeout=120
 retry_cnt=3
