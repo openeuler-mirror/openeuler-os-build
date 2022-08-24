@@ -23,9 +23,9 @@ function make_vm_qcow2()
 ######################
 function make_vm_qcow2_inchroot()
 {
-    remoteip=10.175.112.72
-    remoteroot=root
-    remotepwd=EulerLinux
+    remoteip=""
+    remoteroot=""
+    remotepwd=""
     qcow2_image_dir=qcow2_image
     basedir=/home/V3R1/arm64_make_qcow2/arm64_standard
     remote_img_dir="${basedir}/qcow2_image"

@@ -4,8 +4,8 @@
 set -e
 src=""
 des=""
-loginuser="root"
-loginpassword="kong"
+loginuser=""
+loginpassword=""
 r_option=0
 timeout=120
 retry_cnt=3

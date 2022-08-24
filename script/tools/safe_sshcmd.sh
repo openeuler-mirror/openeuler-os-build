@@ -4,8 +4,8 @@
 set -e
 execcmd=""
 machineip=""
-loginuser=root
-loginpassword=huawei
+loginuser=""
+loginpassword=""
 timeout=120
 retry_cnt=3
 
