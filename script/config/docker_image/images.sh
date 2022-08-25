@@ -17,7 +17,6 @@ set +e
 export EULEROS_SECURITY=0
 # TODO remove
 /usr/sbin/security-tool.sh -d / -c /etc/openEuler_security/security.conf -u /etc/openEuler_security/usr-security.conf -l /var/log/openEuler-security.log -s
-echo "export TMOUT=300" >> /etc/bashrc
 
 [ -n /boot ] && rm -rf /boot
 
