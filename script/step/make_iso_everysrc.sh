@@ -42,6 +42,11 @@ function make_iso_everysrc_inchroot()
     do
         sed -i '/<packagelist type="exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
+    rpmsnames=`cat ${UNABLE_INSTALL_SOURCE_LIST}`
+    for rpmsname in $rpmsnames
+    do
+        sed -i '/<packagelist type="src_exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
+    done
     sed -i '/parse_rpmlist_xml \"conflict\"/d' rpm.sh
     OBS_STANDARD_REPO_URL=${OBS_STANDARD_REPO_URL%/*}
     REPOS=`echo "${OBS_STANDARD_REPO_URL}/standard_aarch64 ${OBS_STANDARD_REPO_URL}/standard_x86_64 ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
