@@ -10,6 +10,7 @@ export OUTPUT_PATH="${BUILD_SCRIPT_DIR}/output"
 export PROJECT_PATH="${BUILD_SCRIPT_DIR}/../../../../.."
 export ERROR_LOG="${OUTPUT_PATH}/error_log"
 export UNABLE_INSTALL_LIST="${BUILD_SCRIPT_DIR}"/config/unable_install_list
+export UNABLE_INSTALL_SOURCE_LIST="${BUILD_SCRIPT_DIR}"/config/unable_install_source_list
 
 if [ ! -d "${OUTPUT_PATH}"  ]; then
     mkdir -p "${OUTPUT_PATH}" 
