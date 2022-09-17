@@ -5,6 +5,7 @@ import threading
 import platform
 import subprocess
 import argparse
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -24,6 +25,33 @@ def kill_yumdownloader(rpm_path, thr):
     cmd = "ps -ef | grep yumdownloader | awk '{print $2}' | xargs kill -9"
     os.system(cmd)
 
+
+def get_exclude_rpm(repo_name):
+    """
+    get exclude rpmlist
+    """
+    exclude_rpmlist = []
+    repo_path = os.path.join(os.getcwd(), repo_name)
+    if os.path.exists(repo_path):
+        shutil.rmtree(repo_path)
+    git_url = f"https://gitee.com/src-openeuler/{repo_name}.git"
+    if args.project == "openEuler:Mainline":
+        branch = "master"
+    else:
+        branch = args.project.replace(":", "-")
+    cmd = "git clone --depth 1 %s -b %s" % (git_url, branch)
+    if os.system(cmd) != 0:
+        print("Git clone oemaker failed!")
+        sys.exit(1)
+    else:
+        print("Git clone oemaker success!")
+    cmd = "xmllint --xpath \"//packagelist[@type='exclude']/node()\" %s/rpmlist.xml \
+            | grep packagereq | cut -d '>' -f 2 | cut -d '<' -f 1" % repo_path
+    ret = os.popen(cmd).read().split('\n')
+    exclude_rpmlist = [ x for x in ret if x != "" ]
+    shutil.rmtree(repo_path)
+    print("oemaker rpmlist.xml exclude rpm:%s" % exclude_rpmlist)
+    return exclude_rpmlist
 
 def set_rpm_list(rpm_list_file, arch, rpm_path, config=None, repo=None):
     if config and repo:
@@ -119,6 +147,19 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
     cmd = "sed -i 's/\.noarch//g' %s && sed -i 's/\.%s//g' %s" % (delete_rpm_list_file, arch, delete_rpm_list_file)
     if os.system(cmd) == 0:
         pass
+    if not args.project.endswith(":Epol"):
+        repo_name = "oemaker"
+        exclude_rpmlist = get_exclude_rpm(repo_name)
+        if exclude_rpmlist:
+            with open(args.exclude_rpm_list_file, "r") as f:
+                res = f.read().splitlines()
+                delete_rpm_list = [x for x in res if x != '']
+            if delete_rpm_list:
+                with open(args.exclude_rpm_list_file, "w") as f:
+                    for rpm in delete_rpm_list:
+                        if rpm not in exclude_rpmlist:
+                            f.write(rpm)
+                            f.write("\n")
     print("=================== exclude rpm list start ======================")
     print(os.popen("cat %s && rm -rf %s/*.rpm" % (delete_rpm_list_file, rpm_path)).read())
     print("=================== exclude rpm list end ======================")
@@ -146,18 +187,21 @@ def set_exclude_pkg_all_rpms():
     get all rpms of exclude rpm list and source rpms
     """
     print("=========== start search all rpms of exclude rpm list ===========")
-    pkg_rpms_list = []
-    cmd = "uname -m"
-    arch = os.popen(cmd).read().strip()
-    cmd = f"osc list {args.project} 2>/dev/null"
-    res = os.popen(cmd).read().split()
-    pkglist = [x for x in res if x != '']
-    with ThreadPoolExecutor(100) as executor:
-        for pkg in pkglist:
-            executor.submit(get_pkg_rpms, pkg, arch, pkg_rpms_list)
     with open(args.exclude_rpm_list_file, "r") as f:
         file_content = f.read().strip().splitlines()
+    cmd = f"rm -f {args.final_exclude_rpm_list_file} {args.final_source_exclude_rpm_list_file} && touch {args.final_exclude_rpm_list_file} {args.final_source_exclude_rpm_list_file}"
+    if os.system(cmd) == 0:
+        pass
     if file_content:
+        pkg_rpms_list = []
+        cmd = "uname -m"
+        arch = os.popen(cmd).read().strip()
+        cmd = f"osc list {args.project} 2>/dev/null"
+        res = os.popen(cmd).read().split()
+        pkglist = [x for x in res if x != '']
+        with ThreadPoolExecutor(100) as executor:
+            for pkg in pkglist:
+                executor.submit(get_pkg_rpms, pkg, arch, pkg_rpms_list)
         final_rpms_list = []
         for rpms in pkg_rpms_list:
             for rpm in rpms:
@@ -169,10 +213,7 @@ def set_exclude_pkg_all_rpms():
             f2 = open(args.final_source_exclude_rpm_list_file, "w")
             for rpm in final_rpms_list:
                 if rpm.endswith(".src.rpm"):
-                    if args.project.endswith(":Epol"):
-                        f2.write(rpm)
-                    else:
-                        f2.write(rpm.rsplit("-", 2)[0])
+                    f2.write(rpm.rsplit("-", 2)[0])
                     f2.write("\n")
                 else:
                     f1.write(rpm)
@@ -194,7 +235,7 @@ par.add_argument("-r", "--repo", help="name of repo", default=None, required=Fal
 par.add_argument("-sea", "--set_exclude_all_rpms", help="set all rpms of exclude package", default=None, required=False)
 par.add_argument("-fe", "--final_exclude_rpm_list_file", help="file for all rpms which are exclude", required=False)
 par.add_argument("-fes", "--final_source_exclude_rpm_list_file", help="file for source rpms which are exclude", required=False)
-par.add_argument("-p", "--project", help="name of obs project", default=None, required=False)
+par.add_argument("-p", "--project", help="name of obs project", default=None, required=True)
 args = par.parse_args()
 
 t1 = threading.Thread(target=check_dep, args=(args.rpm_list_file, args.check_log_file, args.exclude_rpm_list_file, args.dest_rpm_path, args.config, args.repo))
