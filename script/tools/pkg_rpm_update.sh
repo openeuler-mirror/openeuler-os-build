@@ -45,7 +45,7 @@ function update_json_file(){
 	action=$1
 	update_dir=$2
 	json_file=$3
-	pkglist=$4
+	local pkglist=$4
 	if [[ ${action} == "create" ]];then
 		insert_dir "update" ${update_dir} ${json_file}
 	elif [[ ${action} == "del_update_dir" ]];then
@@ -80,16 +80,20 @@ function copy_rpm(){
 	fi
 	real_dir=${date_dir}
 	if [ ${pkg_place} == "standard" ];then
+		publish_path=(/repo/openeuler/${branch_name}/source /repo/openeuler/${branch_name}/update /repo/openeuler/${branch_name}/everything /repo/openeuler/${branch_name}/debuginfo)
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${date_dir}"
 	elif [ ${pkg_place} == "EPOL" ];then
+		publish_path=(/repo/openeuler/${branch_name}/EPOL/update /repo/openeuler/${branch_name}/EPOL)
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}"
 	elif [ ${pkg_place} == "EPOL-main" ];then
+		publish_path=(/repo/openeuler/${branch_name}/EPOL/update/main /repo/openeuler/${branch_name}/EPOL/main)
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/main"
 		real_dir="${date_dir}|main"
 	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
 		tmp=`echo ${obs_proj##*Multi-Version:}`
 		pkg=`echo ${tmp%:*}`
 		ver=`echo ${tmp#*:}`
+		publish_path=(/repo/openeuler/${branch_name}/EPOL/update/multi_version/${pkg}/${ver} /repo/openeuler/${branch_name}/EPOL/multi_version/${pkg}/${ver})
 		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/multi_version/${pkg}/${ver}"
 		real_dir="${date_dir}|multi_version|${pkg}|${ver}"
 	else
@@ -148,6 +152,84 @@ fi
 	update_json_file "create" ${real_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 	check_update_rpm ${obs_proj} ${date_dir} ${pkg_place} ${update_key} ${pkglist} "create"
+	remove_published_rpm ${obs_proj} ${pkglist} ${publish_path} ${update_path} ${update_key} ${pkg_place}
+}
+
+# Remove published rpms in update_xxx
+remove_published_rpm(){
+	obs_proj=$1
+	pkglist=$2
+	publish_path=$3
+	update_path=$4
+	update_key=$5
+	pkg_place=$6
+	arch=(aarch64 x86_64)
+	unset source_rpmlist
+	pkgs=${pkglist//,/ }
+	echo "[INFO]: Start delete published rpm from ${update_path}"
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
+	echo "${publish_path[@]}"
+	if [[ "${pkg_place}" == "standard" ]];then
+		for path in ${publish_path[@]}
+		do
+			if [[ "${path}" =~ "source" ]];then
+				tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/Packages && ls *.src.rpm")
+				source_rpmlist+=(${tmp_source_rpmlist[@]})
+			elif [[ "${path}" =~ "update" ]];then
+				tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/source/Packages && ls *.src.rpm")
+				source_rpmlist+=(${tmp_source_rpmlist[@]})
+			fi
+		done
+		unset publish_path[0]
+	else
+		for path in ${publish_path[@]}
+		do
+			tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/source/Packages && ls *.src.rpm")
+			source_rpmlist+=(${tmp_source_rpmlist[@]})
+		done
+	fi
+	for ar in ${arch[@]}
+	do
+		src_flag=0
+		arch_flag=0
+		unset rpmlist
+		for path in ${publish_path[@]}
+		do
+			tmp_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/${ar}/Packages && ls *.rpm")
+			rpmlist+=(${tmp_rpmlist[@]})
+		done
+		for pkg in ${pkgs}
+		do
+			pkg_rpmlist=$(osc ls -b ${obs_proj} ${pkg} standard_${ar} ${ar} 2>/dev/null | grep "\.rpm")
+			if [ -n "${pkg_rpmlist}" ];then
+				for pkg_rpm in ${pkg_rpmlist[@]}
+				do
+					if [[ "${pkg_rpm}" =~ ".src.rpm" ]];then
+						if [[ "${source_rpmlist[@]}" =~ "${pkg_rpm}" ]];then
+							echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/source"
+							ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/source/Packages/${pkg_rpm}"
+							src_flag=1
+							sed -i "/^${pkg}$/d" pkglist
+						fi
+					fi
+					if [[ "${rpmlist[@]}" =~ "${pkg_rpm}" ]];then
+						echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/${ar}"
+						ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/${ar}/Packages/${pkg_rpm}"
+						arch_flag=1
+						sed -i "/^${pkg}$/d" pkglist
+					fi
+				done
+			fi
+		done
+		if [ ${src_flag} -eq 1 ];then
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && rm -rf source/repodata && createrepo -d source"
+		fi
+		if [ ${arch_flag} -eq 1 ];then
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && rm -rf ${ar}/repodata && createrepo -d ${ar}"
+		fi
+	done
+	scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+	echo "[INFO]: Finish delete published rpm from ${update_path}"
 }
 
 # Publish all packages binaries
@@ -550,7 +632,6 @@ function check_update_rpm(){
 		fi
 		echo "经过检查后，${update_path}目录中软件包(${pkglist})的二进制无缺失且无多余！"
 		rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
-		exit 0	
 	fi
 }
 
