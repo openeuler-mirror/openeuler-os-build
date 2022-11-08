@@ -91,7 +91,12 @@ fi
 bitbake_opt="\$(grep "You can now run " ${BUILD_DIR}/source.log | awk -F"'" '{print \$2}')"
 #\${bitbake_opt}
 echo "bitbake ${build_image_name}"
+
 bitbake ${build_image_name}
+if [[ ${build_image_name} != "openeuler-image-tiny" ]]; then
+    bitbake ${build_image_name} -c do_populate_sdk
+fi
+
 EOF
 
     sudo -E -u "${username}" sh -x "${BUILD_DIR}"/build.sh || exit 1
