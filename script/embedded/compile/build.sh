@@ -25,6 +25,8 @@ TOP_OUTPUT_DIR="/usr1/output/"
         group="arm64";;
     "arm-std")
         group="arm32";;
+    "x86-64-std")
+        group="x86_64";;
     *)
         echo "unknown machine";exit 1
     esac
