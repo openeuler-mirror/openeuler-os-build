@@ -115,6 +115,9 @@ rm -rf *
 ln -sf ../"${datetime}" "${datetime}"
 popd
 popd
+if [ ! -f "${SRC_DIR}/manifest.xml" ]; then
+    python3 {SCRIPTS_DIR}/manifest.py ${SRC_DIR}
+fi
 cp -a "${SRC_DIR}"/manifest.xml "${TOP_OUTPUT_DIR}/${datetime}/source-list/"
 create_checksum_for_release "${TOP_OUTPUT_DIR}/${datetime}"
 echo "INFO: ALL successfully!"
