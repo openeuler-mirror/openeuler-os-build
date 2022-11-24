@@ -1,21 +1,28 @@
 import os
 import sys
+import shutil
 
 import git
 
 class Manifest(object):
 
     @staticmethod
-    def get_repo_param(repo_dir : str):
+    def get_repo_param(src_dir : str, local_dir : str):
+        repoDir = os.path.join(src_dir, local_dir)
         try:
-            repo = git.Repo(repo_dir)
+            repo = git.Repo(repoDir)
         except:
             return None
-            
-        path = dir
-        remote = repo.remote()
-        repoName = remote.url.replace("https://gitee.com/", "")
-        revision = repo.head.commit
+        
+        path = local_dir
+
+        try:
+            remote = repo.remote()
+            repoName = remote.url.replace("https://gitee.com/", "")
+            revision = repo.head.commit
+        except:
+            return None
+
         if "src-openeuler" in remote.url:
             group = "src-openeuler"
         else:
@@ -42,12 +49,12 @@ class Manifest(object):
     def exec(self, src_dir):
         if os.path.exists(os.path.join(src_dir, 'manifest.xml')):
             os.remove(os.path.join(src_dir, 'manifest.xml'))
-        
+
         os.mknod(os.path.join(src_dir, 'manifest.xml'))
 
-        yocto = self.get_repo_param(repo_dir = os.path.join(src_dir, 'yocto-meta-openeuler'))
+        yocto = self.get_repo_param(src_dir, 'yocto-poky')
         if yocto == None:
-            raise("there is no yocto-meta-openeuler")
+            raise("there is no yocto-poky")
 
         with open(os.path.join(src_dir, 'manifest.xml'), 'a+') as f:
             f.write('<?xml version="1.0" encoding="utf-8"?>\n')
@@ -59,7 +66,7 @@ class Manifest(object):
             for dir in dirList:
                 if dir == "yocto-meta-openeuler":
                     continue
-                repoParam = self.get_repo_param(repo_dir = os.path.join(src_dir, dir))
+                repoParam = self.get_repo_param(src_dir, dir)
                 if repoParam == None:
                     continue
                 wline = "    <project name=\"{}\" path=\"{}\" revision=\"{}\" groups=\"{}\" upstream=\"{}\"/>".format(repoParam['repo_name'], repoParam['path'], repoParam['revision'], repoParam['group'], repoParam['branch'])
@@ -73,8 +80,8 @@ def main():
         raise("please entry src directory")
 
     manifest = Manifest()
-    manifest.exec(src_dir = sys.argv[1:2])
-    print("manifest create successful in {}".format(sys.argv[1:2]))
+    manifest.exec(src_dir = sys.argv[1])
+    print("manifest create successful in {}".format(sys.argv[1]))
 
 if __name__ == "__main__":
     main()
