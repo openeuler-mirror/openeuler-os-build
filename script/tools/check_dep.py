@@ -186,13 +186,13 @@ def set_exclude_pkg_all_rpms():
     """
     get all rpms of exclude rpm list and source rpms
     """
-    print("=========== start search all rpms of exclude rpm list ===========")
     with open(args.exclude_rpm_list_file, "r") as f:
         file_content = f.read().strip().splitlines()
     cmd = f"rm -f {args.final_exclude_rpm_list_file} {args.final_source_exclude_rpm_list_file} && touch {args.final_exclude_rpm_list_file} {args.final_source_exclude_rpm_list_file}"
     if os.system(cmd) == 0:
         pass
     if file_content:
+        print("============ start search all rpms of exclude rpm list ===========")
         pkg_rpms_list = []
         cmd = "uname -m"
         arch = os.popen(cmd).read().strip()
@@ -203,11 +203,17 @@ def set_exclude_pkg_all_rpms():
             for pkg in pkglist:
                 executor.submit(get_pkg_rpms, pkg, arch, pkg_rpms_list)
         final_rpms_list = []
+        rpms_reason_dict = {}
         for rpms in pkg_rpms_list:
+            err_rpm_list = []
             for rpm in rpms:
                 if rpm in file_content:
                     if rpm not in final_rpms_list:
                         final_rpms_list.extend(rpms)
+                    err_rpm_list.append(rpm)
+            if err_rpm_list:
+                rpms_reason_dict.setdefault("install_problem", []).extend(err_rpm_list)
+                rpms_reason_dict.setdefault("other_rpm_install_problem", []).extend(list(set(rpms) - set(err_rpm_list)))
         if final_rpms_list:
             f1 = open(args.final_exclude_rpm_list_file, "w")
             f2 = open(args.final_source_exclude_rpm_list_file, "w")
@@ -220,10 +226,27 @@ def set_exclude_pkg_all_rpms():
                     f1.write("\n")
             f1.close()
             f2.close()
+        print("二进制包:")
         print(os.popen(f"cat {args.final_exclude_rpm_list_file}").read())
+        print("源码包:")
         print(os.popen(f"cat {args.final_source_exclude_rpm_list_file}").read())
-    print("============ end search all rpms of exclude rpm list ============")
-
+        print("============ end search all rpms of exclude rpm list ============")
+        print("============ start reason for exclude rpm list ============")
+        if rpms_reason_dict:
+            for key, value in rpms_reason_dict.items():
+                for rpm in value:
+                    if rpm.endswith(".src.rpm"):
+                        rpm_name = rpm.rsplit("-", 2)[0]
+                        rpm_type = "源码包\t"
+                    else:
+                        rpm_name = rpm
+                        rpm_type = "二进制包"
+                    if key == "install_problem":
+                        msg = "校验安装失败\t\t\t\t%s\t\t%s" % (rpm_type, rpm_name)
+                    if key == "other_rpm_install_problem":
+                        msg = "对应软件包其它二进制安装失败\t\t%s\t\t%s" % (rpm_type, rpm_name)
+                    print(msg)
+        print("============ end reason for exclude rpm list ==============")
 
 par = argparse.ArgumentParser()
 par.add_argument("-d", "--dest_rpm_path", help="path for rpm", required=True)

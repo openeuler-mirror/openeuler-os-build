@@ -16,6 +16,7 @@
 
 import os
 import re
+import sys
 import shutil
 import logging
 import argparse
@@ -90,7 +91,7 @@ def git_clone():
         branch = args.branch
     cmd = "git clone --depth 1 %s -b %s" % (git_url, branch)
     if os.system(cmd) != 0:
-        print("Git clone oemaker failed!")
+        log.error("Git clone oemaker failed!")
         sys.exit(1)
     return repo_path
 
@@ -150,6 +151,7 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
     """
     final_result = {}
     allpkgs = []
+    reason_msg = []
     for surl, url in zip(short_list, subjob_url_list):
         pkglist = []
         flag = False
@@ -160,6 +162,7 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
                 flag = True
                 continue
             elif "list end" in line:
+                flag = False
                 break
             if flag:
                 if line and line not in exclude_rpmlist:
@@ -167,7 +170,21 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
                     if line not in allpkgs:
                         allpkgs.append(line)
         final_result.setdefault(surl, pkglist)
+        for line in output:
+            line_msg = {}
+            if "start reason for" in line:
+                flag = True
+                continue
+            elif "end reason for" in line:
+                break
+            if flag and line:
+                tmp_data = line.replace('\t', ' ').split()
+                line_msg['reason'] = tmp_data[0]
+                line_msg['type'] = tmp_data[1]
+                line_msg['rpm_name'] = tmp_data[2]
+                reason_msg.append(line_msg)
     log.info("Final cannot install rpm:%s" % allpkgs)
+    log.info("reason msg:%s" % reason_msg)
     failed_pkg = []
     for bin_rpm in allpkgs:
         tmp = {}
@@ -178,9 +195,9 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
         tmp['team'] = data[0]
         tmp['people'] = data[1]
         failed_pkg.append(tmp)
-    return final_result, failed_pkg
+    return final_result, failed_pkg, reason_msg
 
-def write_email_message(final_result, failed_pkg, lastbuildnumber):
+def write_email_message(final_result, failed_pkg, lastbuildnumber, reason_msg):
     """
     write message
     """
@@ -190,6 +207,7 @@ def write_email_message(final_result, failed_pkg, lastbuildnumber):
         msg = ""
         pkgs = ""
         line = ""
+        reason_line = ""
         main_job_url = init_url + "/check-rpm-install-dependence-" + args.branch + "/" + lastbuildnumber + "/console"
         log.info(main_job_url)
         for key,value in final_result.items():
@@ -209,6 +227,10 @@ def write_email_message(final_result, failed_pkg, lastbuildnumber):
             pkgs = pkgs + """
             <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>
             """ % (tmp['bin_rpm'], tmp['source_rpm'], tmp['team'], tmp['people'])
+        for reason in reason_msg:
+            reason_line = reason_line + """
+            <tr><td>%s</td><td>%s</td><td>%s</td></tr>
+            """ % (reason['reason'], reason['rpm_name'], reason['type'])
         msg = """
         <h2>Hello:</h2>
         <h3>根据OBS工程repo源检查软件包安装问题，其日志链接如下：</h3>
@@ -222,7 +244,11 @@ def write_email_message(final_result, failed_pkg, lastbuildnumber):
         %s
         </table>
         <p>这些问题会阻塞ISO的构建，请尽快解决，谢谢~^V^~!!!</p>
-        """ % (line, args.branch, pkgs)
+        <table border=8>
+        <tr><th>剔除原因</th><th>rpm包名</th><th>类型</th></tr>
+        %s
+        </table>
+        """ % (line, args.branch, pkgs, reason_line)
     return msg
 
 def send_email(message):
@@ -251,7 +277,7 @@ else:
     lastbuildnumber = args.buildnumber
 job_url_list, short_job_url = get_subjob_url(lastbuildnumber)
 file_msg = read_yaml()
-final_result, allrpm = parse_msg(job_url_list, short_job_url, exclude_rpmlist, file_msg)
-message = write_email_message(final_result, allrpm, lastbuildnumber)
+final_result, allrpm, reason_message = parse_msg(job_url_list, short_job_url, exclude_rpmlist, file_msg)
+message = write_email_message(final_result, allrpm, lastbuildnumber, reason_message)
 if message:
     send_email(message)
