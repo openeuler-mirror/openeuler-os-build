@@ -113,6 +113,8 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
     if config and repo:
         if "Epol" in repo:
             para = "-c %s --repo obs-standard,%s" % (config, repo)
+        elif "multi_version" in repo:
+            para = "-c %s --repo obs-standard,obs-Epol,%s" % (config, repo)
         else:
             para = "-c %s --repo %s" % (config, repo)
     elif config:
@@ -147,7 +149,7 @@ def check_dep(rpm_list_file, check_log_file, delete_rpm_list_file, rpm_path, con
     cmd = "sed -i 's/\.noarch//g' %s && sed -i 's/\.%s//g' %s" % (delete_rpm_list_file, arch, delete_rpm_list_file)
     if os.system(cmd) == 0:
         pass
-    if not args.project.endswith(":Epol"):
+    if ":Epol" not in args.project:
         repo_name = "oemaker"
         exclude_rpmlist = get_exclude_rpm(repo_name)
         if exclude_rpmlist:
