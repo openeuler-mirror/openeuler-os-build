@@ -4,6 +4,12 @@ import shutil
 
 import git
 
+sys.path.insert(1, os.path.join(os.path.dirname(__file__),'../../..'))
+
+from log import log_init
+
+logger = log_init()
+
 class Manifest(object):
 
     @staticmethod
@@ -11,16 +17,21 @@ class Manifest(object):
         repoDir = os.path.join(src_dir, local_dir)
         try:
             repo = git.Repo(repoDir)
-        except:
+        except Exception as e:
+            logger.error(e)
             return None
-        
+
+        with repo.config_writer('global') as config:
+            config.set_value('safe', 'directory', repoDir).release()
+
         path = local_dir
 
         try:
             remote = repo.remote()
             repoName = remote.url.replace("https://gitee.com/", "")
-            revision = repo.head.commit
-        except:
+            revision = repo.head.commit.hexsha
+        except Exception as e:
+            logger.error(e)
             return None
 
         if "src-openeuler" in remote.url:
@@ -32,10 +43,11 @@ class Manifest(object):
             branch = repo.active_branch.name
         except TypeError:
             for tag in repo.tags:
-                if tag.commit == repo.head.commit:
+                if tag.commit.hexsha == repo.head.commit.hexsha:
                     branch = tag.name
                     break
         except Exception as e:
+            logger.error(e)
             return None
         
         return {
@@ -47,6 +59,7 @@ class Manifest(object):
         }
 
     def exec(self, src_dir):
+
         if os.path.exists(os.path.join(src_dir, 'manifest.xml')):
             os.remove(os.path.join(src_dir, 'manifest.xml'))
 
@@ -78,10 +91,10 @@ class Manifest(object):
 def main():
     if sys.argv[1:2] == "":
         raise("please entry src directory")
-
+    logger.info("param is {}".format(sys.argv[1]))
     manifest = Manifest()
     manifest.exec(src_dir = sys.argv[1])
-    print("manifest create successful in {}".format(sys.argv[1]))
+    logger.info("manifest create successful in {}".format(sys.argv[1]))
 
 if __name__ == "__main__":
     main()
