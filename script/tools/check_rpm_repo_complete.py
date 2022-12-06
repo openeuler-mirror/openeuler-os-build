@@ -93,8 +93,10 @@ def get_repo_rpm_list():
     if result:
         del(result[0])
     repo_rpm_list = []
+    repo_rpm_detail = []
     arch_list = [".aarch64", ".x86_64", ".noarch", ".src"]
     for line in result:
+        tmp_dict = {}
         tmp = line.split()
         for arch in arch_list:
             if arch in tmp[0]:
@@ -108,9 +110,13 @@ def get_repo_rpm_list():
                 break
         if rpm_name not in repo_rpm_list:
             repo_rpm_list.append(rpm_name)
-    return repo_rpm_list
+        tmp_dict["name"] = name
+        tmp_dict["version"] = version
+        tmp_dict["arch"] = arch
+        repo_rpm_detail.append(tmp_dict)
+    return repo_rpm_list, repo_rpm_detail
 
-def get_pkg_rpms(pkg, arch, pkg_rpm_list):
+def get_pkg_rpms(pkg, arch, pkg_rpm_list, pkg_rpm_dict):
     """
     get a package all rpm
     """
@@ -119,18 +125,20 @@ def get_pkg_rpms(pkg, arch, pkg_rpm_list):
     new_rpm_list = [rpm for rpm in rpm_list if rpm != '']
     if new_rpm_list:
         pkg_rpm_list.extend(new_rpm_list)
+        pkg_rpm_dict[pkg] = new_rpm_list
 
 def get_release_all_pkg_rpms(release_pkg_list):
     """
     get rpms of all pkg
     """
     pkg_rpm_list = []
+    pkg_rpm_dict = {}
     cmd = "arch"
     arch = os.popen(cmd).read().strip()
     with ThreadPoolExecutor(100) as executor:
         for pkg in release_pkg_list:
-            executor.submit(get_pkg_rpms, pkg, arch, pkg_rpm_list)
-    return pkg_rpm_list 
+            executor.submit(get_pkg_rpms, pkg, arch, pkg_rpm_list, pkg_rpm_dict)
+    return pkg_rpm_list, pkg_rpm_dict
 
 def delete_exclude_rpm(not_in_repo_rpm):
     """
@@ -161,17 +169,48 @@ def check_repo_complete():
     """
     print("========== start check release package rpm in repo ==========")
     release_pkg_list = get_release_pkg_list()
-    all_pkg_rpm_list = get_release_all_pkg_rpms(release_pkg_list)
+    all_pkg_rpm_list, all_pkg_rpm_dict = get_release_all_pkg_rpms(release_pkg_list)
     print("all_pkg_rpm_list:%s" % all_pkg_rpm_list)
-    repo_rpm_list = get_repo_rpm_list()
+    repo_rpm_list, repo_rpm_detail = get_repo_rpm_list()
     print("repo_rpm_list:%s" % repo_rpm_list)
     not_in_repo_rpm = list(set(all_pkg_rpm_list) - set(repo_rpm_list))
+    print("total of all_pkg_rpm_list:", len(all_pkg_rpm_list))
+    print("total of repo_rpm_list:", len(repo_rpm_list))
     if not_in_repo_rpm:
         final_result = delete_exclude_rpm(not_in_repo_rpm)
         print("[FAILED] some package rpm not in repo without exclude rpm")
+        print("total of different:", len(final_result))
+        print("Error_type\t\tPackage_name\t\tRpm_Type\t\tOBS\t\t\t\t\t\tEBS")
         if final_result:
             write_file(final_result)
-            print("\n".join(final_result))
+            for err_rpm in final_result:
+                in_repo_rpm = ""
+                tmp = {}
+                if ".src.rpm" in err_rpm:
+                    tmp["rpm_type"] = "source_rpm"
+                else:
+                    tmp["rpm_type"] = "binary_rpm"
+                tmp["OBS"] = err_rpm
+                for pkg, rpms in all_pkg_rpm_dict.items():
+                    if err_rpm in rpms:
+                        tmp["package_name"] = pkg
+                        break
+                name = err_rpm.rsplit("-", 2)[0]
+                for repo_rpm in repo_rpm_detail:
+                    if name == repo_rpm["name"] and repo_rpm["arch"] in err_rpm:
+                        tmp["error_type"] = "version_different"
+                        in_repo_rpm = f"{repo_rpm['name']}-{repo_rpm['version']}{repo_rpm['arch']}.rpm"
+                        break
+                if in_repo_rpm:
+                    tmp["EBS"] = in_repo_rpm
+                else:
+                    tmp["error_type"] = "not_find_in_repo"
+                    tmp["EBS"] = "None"
+                if len(tmp["package_name"]) % 4 == 0:
+                    msg = f'{tmp["error_type"]}\t{tmp["package_name"]}\t{tmp["rpm_type"]}\t{tmp["OBS"]}\t{tmp["EBS"]}'
+                else:
+                    msg = f'{tmp["error_type"]}\t{tmp["package_name"]}\t\t{tmp["rpm_type"]}\t{tmp["OBS"]}\t{tmp["EBS"]}'
+                print(msg)
     else:
         print("[SUCCESS] all package rpm in repo")
     print("========== end check release package rpm in repo ==========")
