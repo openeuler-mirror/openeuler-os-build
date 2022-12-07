@@ -182,7 +182,8 @@ def parse_msg(subjob_url_list, short_list, exclude_rpmlist, file_msg):
                 line_msg['reason'] = tmp_data[0]
                 line_msg['type'] = tmp_data[1]
                 line_msg['rpm_name'] = tmp_data[2]
-                reason_msg.append(line_msg)
+                if line_msg not in reason_msg:
+                    reason_msg.append(line_msg)
     log.info("Final cannot install rpm:%s" % allpkgs)
     log.info("reason msg:%s" % reason_msg)
     failed_pkg = []
