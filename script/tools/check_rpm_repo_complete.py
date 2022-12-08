@@ -2,6 +2,7 @@
 
 import os
 import sys
+import csv
 import yaml
 import argparse
 import shutil
@@ -13,6 +14,7 @@ par.add_argument("-c", "--config", help="config file for repo", default=None, re
 par.add_argument("-r", "--repo", help="name of repo", default=None, required=True)
 par.add_argument("-p", "--project", help="name of project", default=None, required=True)
 par.add_argument("-f", "--logfile", help="not in repo rpm list file", default=None, required=True)
+par.add_argument("-rf", "--resultfile", help="check result csv file", default=None, required=True)
 args = par.parse_args()
 
 
@@ -163,6 +165,12 @@ def write_file(result):
                 f.write(line)
                 f.write("\n")
 
+def write_csv(header, data):
+    with open(args.resultfile, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, header)
+        writer.writeheader()
+        writer.writerows(data)
+
 def check_repo_complete():
     """
     check project all pkg rpm equal repo all rpm
@@ -183,34 +191,39 @@ def check_repo_complete():
         print("Error_type\t\tPackage_name\t\tRpm_Type\t\tOBS\t\t\t\t\t\tEBS")
         if final_result:
             write_file(final_result)
+            data = []
             for err_rpm in final_result:
                 in_repo_rpm = ""
+                package_name = None
                 tmp = {}
                 if ".src.rpm" in err_rpm:
-                    tmp["rpm_type"] = "source_rpm"
+                    rpm_type = "source_rpm"
                 else:
-                    tmp["rpm_type"] = "binary_rpm"
-                tmp["OBS"] = err_rpm
+                    rpm_type = "binary_rpm"
                 for pkg, rpms in all_pkg_rpm_dict.items():
                     if err_rpm in rpms:
-                        tmp["package_name"] = pkg
+                        package_name = pkg
                         break
                 name = err_rpm.rsplit("-", 2)[0]
                 for repo_rpm in repo_rpm_detail:
                     if name == repo_rpm["name"] and repo_rpm["arch"] in err_rpm:
-                        tmp["error_type"] = "version_different"
+                        error_type = "version_different"
                         in_repo_rpm = f"{repo_rpm['name']}-{repo_rpm['version']}{repo_rpm['arch']}.rpm"
                         break
                 if in_repo_rpm:
-                    tmp["EBS"] = in_repo_rpm
+                    ebs = in_repo_rpm
                 else:
-                    tmp["error_type"] = "not_find_in_repo"
-                    tmp["EBS"] = "None"
-                if len(tmp["package_name"]) % 4 == 0:
-                    msg = f'{tmp["error_type"]}\t{tmp["package_name"]}\t{tmp["rpm_type"]}\t{tmp["OBS"]}\t{tmp["EBS"]}'
-                else:
-                    msg = f'{tmp["error_type"]}\t{tmp["package_name"]}\t\t{tmp["rpm_type"]}\t{tmp["OBS"]}\t{tmp["EBS"]}'
-                print(msg)
+                    error_type = "not_find_in_repo"
+                    ebs = "None"
+                tmp["error_type"] = error_type
+                tmp["package_name"] = package_name
+                tmp["rpm_type"] = rpm_type
+                tmp["OBS"] = err_rpm
+                tmp["EBS"] = ebs
+                data.append(tmp)
+                print("\t".join(tmp.values()))
+            header = ["error_type", "package_name", "rpm_type", "OBS", "EBS"]
+            write_csv(header, data)
     else:
         print("[SUCCESS] all package rpm in repo")
     print("========== end check release package rpm in repo ==========")
