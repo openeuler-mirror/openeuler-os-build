@@ -141,6 +141,8 @@ def get_subjob_url(lastbuildnumber):
         if "#" in tmp:
             t = tmp.replace(" #", "/").split()[2]
             job_url = baseurl + "/" + t + "/consoleFull"
+            if "Train" in t or "Wallaby" in t:
+                continue
             short_job_url.append(t)
             job_url_list.append(job_url)
     return job_url_list, short_job_url

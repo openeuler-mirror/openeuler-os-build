@@ -142,7 +142,7 @@ function get_epol_rpms_inchroot()
     unrpms=`cat ${UNABLE_INSTALL_LIST}`
     for unrpm in ${unrpms}
     do
-	    sed -i "/${unrpm}\./d" ava_epol_lst
+	    sed -i "/^${unrpm}\./d" ava_epol_lst
     done
     yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
     rm -rf ${tmp_dir}/Packages/var
@@ -158,7 +158,7 @@ function get_epol_rpms_inchroot()
         unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}`
         for unrpm in ${unrpms}
         do
-		sed -i "/${unrpm}\./d" ava_epol_lst
+		sed -i "/^${unrpm}\./d" ava_epol_lst
         done
         yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
         rm -rf ${tmp_source}/Packages/var
@@ -184,6 +184,11 @@ function get_epol_rpms_inchroot()
             yum-config-manager --add-repo ${repo_url}
             yum clean all
             yum list --installroot="${tmp_dir}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v "\.src" > ava_epol_lst
+            unrpms=`cat ${UNABLE_INSTALL_LIST}_${VER}`
+            for unrpm in ${unrpms}
+            do
+                sed -i "/^${unrpm}\./d" ava_epol_lst
+            done
             yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
             rm -rf ${tmp_dir}/Packages/var
             createrepo -d ${tmp_dir}
@@ -195,6 +200,11 @@ function get_epol_rpms_inchroot()
                 mkdir -p ${tmp_source}/Packages
                 yum-config-manager --add-repo "http://${OBS_SERVER_IP}:82/${SUB_EPOL_MULTI_REPO_URL}/standard_x86_64"
                 yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep "\.src" > ava_epol_lst
+                unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}_${VER}`
+                for unrpm in ${unrpms}
+                do
+                    sed -i "/^${unrpm}\./d" ava_epol_lst
+                done
                 yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
                 rm -rf ${tmp_source}/Packages/var
                 createrepo -d ${tmp_source}
