@@ -60,7 +60,7 @@ function update_json_file(){
 
 # Create UPDATE directory and add package binaries
 function copy_rpm(){
-	obs_proj=$1
+	local obs_proj=$1
 	pkglist=$2
 	update_key=$3
 	pkg_place=$4
@@ -108,18 +108,45 @@ if [ ! -d ${update_path} ];then
 fi
 "
 	pkgs=${pkglist//,/ }
+	arch=(aarch64 x86_64)
+	for p in ${ebs_proj_list[@]}
+	do
+		if [[ ${obs_proj} =~ ${p} ]];then
+			download_type="ccb"
+			if [[ ${obs_proj} =~ "Multi-Version" ]];then
+				obs_proj=`echo ${obs_proj//:/_}`
+			elif [[ ${obs_proj} =~ "Epol" ]];then
+				bak=`echo ${obs_proj//:/-}`
+				obs_proj=`echo ${bak//-Epol/:epol}`
+			else
+				obs_proj="`echo ${obs_proj//:/-}`:everything"
+			fi
+		fi
+	done
 	for pkg in ${pkgs}
 	do
-		osc getbinaries ${obs_proj} ${pkg} standard_aarch64 aarch64 --source --debug 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
-		rm -f binaries/*.src.rpm 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/aarch64/Packages/ 2>/dev/null
-		rm -rf binaries 2>/dev/null
-		osc getbinaries ${obs_proj} ${pkg} standard_x86_64 x86_64 --source --debug 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
-		rm -f binaries/*.src.rpm 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/x86_64/Packages/ 2>/dev/null
-		rm -rf binaries 2>/dev/null
+		if [[ ${download_type} == "ccb" ]];then
+			for ar in ${arch[@]}
+			do
+				rpm_dir="${obs_proj}-${ar}-${pkg}"
+				ccb download os_project=${obs_proj} packages=${pkg} architecture=${ar} -b all -s -d 2>/dev/null
+				ls ${rpm_dir}/*.rpm | awk -F'/' '{print $NF}' > ${rpm_dir}_rpmlist
+				scp -i ${update_key} -o StrictHostKeyChecking=no ./${rpm_dir}/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
+				rm -f ${rpm_dir}/*.src.rpm 2>/dev/null
+				scp -i ${update_key} -o StrictHostKeyChecking=no ./${rpm_dir}/*.rpm root@${update_ip}:${update_path}/${ar}/Packages/ 2>/dev/null
+				rm -rf ${rpm_dir} 2>/dev/null
+			done
+		else
+			for ar in ${arch[@]}
+			do
+				osc getbinaries ${obs_proj} ${pkg} standard_${ar} ${ar} --source --debug 2>/dev/null
+				ls binaries/*.rpm | awk -F'/' '{print $NF}' > "${obs_proj}-${ar}-${pkg}_rpmlist"
+				scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
+				rm -f binaries/*.src.rpm 2>/dev/null
+				scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/${ar}/Packages/ 2>/dev/null
+				rm -rf binaries 2>/dev/null
+			done
+		fi
 		echo ${pkg} >> pkglist_bak
 	done
 	rm -f pkglist 2>/dev/null
@@ -151,13 +178,13 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
 	update_json_file "create" ${real_dir} ${json_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
-	check_update_rpm ${obs_proj} ${date_dir} ${pkg_place} ${update_key} ${pkglist} "create"
+	check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "create"
 	remove_published_rpm ${obs_proj} ${pkglist} ${publish_path} ${update_path} ${update_key} ${pkg_place}
 }
 
 # Remove published rpms in update_xxx
-remove_published_rpm(){
-	obs_proj=$1
+function remove_published_rpm(){
+	local obs_proj=$1
 	pkglist=$2
 	publish_path=$3
 	update_path=$4
@@ -200,7 +227,7 @@ remove_published_rpm(){
 		done
 		for pkg in ${pkgs}
 		do
-			pkg_rpmlist=$(osc ls -b ${obs_proj} ${pkg} standard_${ar} ${ar} 2>/dev/null | grep "\.rpm")
+			pkg_rpmlist=$(cat ${obs_proj}-${ar}-${pkg}_rpmlist)
 			if [ -n "${pkg_rpmlist}" ];then
 				for pkg_rpm in ${pkg_rpmlist[@]}
 				do
@@ -234,7 +261,7 @@ remove_published_rpm(){
 
 # Publish all packages binaries
 function release_rpm(){
-	obs_proj=$1
+	local obs_proj=$1
 	release_dir=$2	
 	update_key=$3
 	pkg_place=$4
@@ -316,17 +343,38 @@ fi
 		arch_list="aarch64 x86_64"
 		rm -rf ${path_list} NOT_FOUND binrpmlist
 		mkdir ${path_list} && touch NOT_FOUND
+		for p in ${ebs_proj_list[@]}
+		do
+			if [[ ${obs_proj} =~ ${p} ]];then
+				download_type="ccb"
+				if [[ ${obs_proj} =~ "Multi-Version" ]];then
+					obs_proj=`echo ${obs_proj//:/_}`
+				elif [[ ${obs_proj} =~ "Epol" ]];then
+					bak=`echo ${obs_proj//:/-}`
+					obs_proj=`echo ${bak//-Epol/:epol}`
+				else
+					obs_proj="`echo ${obs_proj//:/-}`:everything"
+				fi
+			fi
+		done
 		for pkg in ${pkgs}
 		do
 			flag=0
-			res=`osc ls ${obs_proj} 2>/dev/null | grep ^${pkg}$`
-			if [[ "x${res}" == "x" ]];then
-				echo "===Error: ${obs_proj} ${pkg} is not exists!!!==="
-				exit 1
+			if [[ ${download_type} != "ccb" ]];then
+				res=`osc ls ${obs_proj} 2>/dev/null | grep ^${pkg}$`
+				if [[ "x${res}" == "x" ]];then
+					echo "===Error: ${obs_proj} ${pkg} is not exists!!!==="
+					exit 1
+				fi
 			fi
 			for arch in ${arch_list}
 			do
-				osc ls -b ${obs_proj} ${pkg} standard_${arch} ${arch} 2>/dev/null | grep rpm > binrpmlist
+				if [[ ${download_type} == "ccb" ]];then
+					ccb download os_project=${obs_proj} packages=${pkg} architecture=${arch} -b all -s -d &>/dev/null
+					ls ${obs_proj}-${arch}-${pkg}/*.rpm | awk -F'/' '{print $NF}' > binrpmlist
+				else
+					osc ls -b ${obs_proj} ${pkg} standard_${arch} ${arch} 2>/dev/null | grep rpm > binrpmlist
+				fi
 				if [ ! -s binrpmlist ];then
 					continue
 				else
@@ -336,7 +384,7 @@ fi
 						src_rpm_name=`echo ${tmp_name%-*}`
 						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep ${src_rpm_name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
-							echo "$src_rpm_name-xxx.oe1.src.rpm" >> NOT_FOUND
+							echo "$src_rpm_name-xxx.src.rpm" >> NOT_FOUND
 							flag=1
 						else
 							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/source/Packages/${result} ./source/
@@ -353,7 +401,7 @@ fi
 						name=`echo ${tmp_name%-*}`
 						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep ${name}-[0-9]*.rpm"`
 						if [[ "x${result}" == "x" ]];then
-							echo "${name}-xxx.oe1.${arch}.rpm" >> NOT_FOUND
+							echo "${name}-xxx.${arch}.rpm" >> NOT_FOUND
 						else
 							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${arch}/Packages/${result} ./${arch}/
 							if [ ! -f "${arch}/${result}" ];then
@@ -398,7 +446,7 @@ fi
 
 # Update packages binaries
 function update_rpm(){
-	obs_proj=$1
+	local obs_proj=$1
 	pkglist=$2
 	update_key=$3
 	up_dir=$4
@@ -438,7 +486,7 @@ fi
 
 # Delete packages binaries
 function del_pkg_rpm(){
-	obs_proj=$1
+	local obs_proj=$1
 	pkglist=$2
 	update_key=$3
 	up_dir=$4
@@ -469,10 +517,34 @@ function del_pkg_rpm(){
 	pkg_x86_path="${update_path}/x86_64/Packages"
 	source_path="${update_path}/source/Packages"
 	pkgs=${pkglist//,/ }
+	for p in ${ebs_proj_list[@]}
+	do
+		if [[ ${obs_proj} =~ ${p} ]];then
+			download_type="ccb"
+			if [[ ${obs_proj} =~ "Multi-Version" ]];then
+				obs_proj=`echo ${obs_proj//:/_}`
+			elif [[ ${obs_proj} =~ "Epol" ]];then
+				bak=`echo ${obs_proj//:/-}`
+				obs_proj=`echo ${bak//-Epol/:epol}`
+			else
+				obs_proj="`echo ${obs_proj//:/-}`:everything"
+			fi
+		fi
+	done
 	for pkg in $pkgs
 	do
-		osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep rpm > aarch_rpmlist.txt
-		osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep rpm > x86_rpmlist.txt
+		if [[ ${download_type} == "ccb" ]];then
+			ccb download os_project=${obs_proj} packages=${pkg} architecture=aarch64 -b all -s -d &>/dev/null
+			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > aarch_rpmlist.txt
+			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-aarch64-${pkg}_rpmlist
+			ccb download os_project=${obs_proj} packages=${pkg} architecture=x86_64 -b all -s -d &>/dev/null
+			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > x86_rpmlist.txt
+			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-x86_64-${pkg}_rpmlist
+			rm -rf ${obs_proj}-aarch64-${pkg} ${obs_proj}-x86_64-${pkg}
+		else
+			osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep rpm > aarch_rpmlist.txt
+			osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep rpm > x86_rpmlist.txt
+		fi
 		if [ -s aarch_rpmlist.txt ];then
 			src_rpm=`cat aarch_rpmlist.txt | grep "src.rpm"`
 		else
@@ -486,16 +558,14 @@ function del_pkg_rpm(){
 		if [ -s aarch_rpmlist.txt ];then
 			for line in `cat aarch_rpmlist.txt`
 			do
-				tmp_name=`echo ${line%-*}`
-				name=`echo ${tmp_name%-*}`
+				name=`echo ${line%-*-*}`
 				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 			done
 		fi
 		if [ -s x86_rpmlist.txt ];then
 			for line2 in `cat x86_rpmlist.txt`
 			do
-				tmp_name=`echo ${line2%-*}`
-				name2=`echo ${tmp_name%-*}`
+				name2=`echo ${line2%-*-*}`
 				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_x86_path} && ls ${name2}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
 			done
 		fi
@@ -512,13 +582,13 @@ function del_pkg_rpm(){
 		done	
 		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
 		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
-		check_update_rpm ${obs_proj} ${up_dir} ${pkg_place} ${update_key} ${pkglist} "delete"
+		check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "delete"
 	fi
 }
 
 # Delete UPDATE directory
 function del_update_dir(){
-	obs_proj=$1
+	local obs_proj=$1
 	up_dir=$2
 	update_key=$3
 	pkg_place=$4
@@ -573,37 +643,18 @@ fi
 function check_update_rpm(){
 	echo "Start checking update directory package binaries..."
 	obs_proj=$1
-	update_dir=$2
-	pkg_place=$3
-	update_key=$4
-	pkglist=$5
-	action=$6
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	if [ ${pkg_place} == "standard" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${update_dir}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${update_dir}/multi_version/${pkg}/${ver}"
-	fi
+	update_path=$2
+	update_key=$3
+	pkglist=$4
+	action=$5
 	pkg_aarch_path="${update_path}/aarch64/Packages"
 	pkg_x86_path="${update_path}/x86_64/Packages"
 	source_path="${update_path}/source/Packages"
 	pkgs=${pkglist//,/ }
 	for pkg in ${pkgs}
 	do
-		osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep -Ev "standard_|_buildenv|_statistics" >> arch_rpm_list
-		osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep -Ev "standard_|_buildenv|_statistics" >> x86_rpm_list
+		cat ${obs_proj}-aarch64-${pkg}_rpmlist >> arch_rpm_list
+		cat ${obs_proj}-x86_64-${pkg}_rpmlist >> x86_rpm_list
 	done
 	cat arch_rpm_list x86_rpm_list | grep "src.rpm" | sort | uniq >> src_rpm_list
 	sed -i '/.src.rpm/d' arch_rpm_list x86_rpm_list
@@ -660,11 +711,12 @@ function parse_data(){
 
 # Prepare the environment
 function prepare_env(){
-	ssh -i $1 -o StrictHostKeyChecking=no root@${update_ip} "apt-get install -y createrepo &>/dev/null"
+	ssh -i $1 -o StrictHostKeyChecking=no root@${update_ip} "yum install -y createrepo &>/dev/null"
 }
 
 # Main function
 function main(){
+	ebs_proj_list=(openEuler:22.03:LTS:SP1)
 	if [ $1 == "openEuler:Mainline" ];then
 		echo "openEuler:Mainline not need update"
 		exit 3
