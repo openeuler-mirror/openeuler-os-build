@@ -126,7 +126,8 @@ make_micro_kernel(){
     yum install kernel-source -y -c "${yum_conf}"
     kernel_src_name=$(rpm -qa | grep kernel-source)
     kernel_src_version=${kernel_src_name: 13}
-    kernel_main_version=${kernel_src_name: 14: 4}
+    kernel_version=$(rpm -q kernel-source --qf %{VERSION})
+    kernel_main_version=${kernel_version%.*}
 
     pushd /usr/src/linux${kernel_src_version}
     kernel_config="kernel_config_${kernel_main_version}_${arch}"
@@ -160,7 +161,8 @@ make_standard_kernel(){
     yum install kernel-source -y -c "${yum_conf}"
     kernel_src_name=$(rpm -qa | grep kernel-source)
     kernel_src_version=${kernel_src_name: 13}
-    kernel_main_version=${kernel_src_name: 14: 4}
+    kernel_version=$(rpm -q kernel-source --qf %{VERSION})
+    kernel_main_version=${kernel_version%.*}
 
     pushd /usr/src/linux${kernel_src_version}
     kernel_config="kernel_config_${kernel_main_version}_${arch}"
