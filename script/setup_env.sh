@@ -32,6 +32,16 @@ export OBS_EXTRAS_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_EXTRAS_REPO_URL}/st
 export OBS_BRINGINRELY_URL=
 export OBS_STANDARD_THIRD_REPO_URL=
 
+obs_master_project=(openEuler:BaseTools openEuler:C openEuler:Common_Languages_Dependent_Tools openEuler:Erlang openEuler:Golang openEuler:Java openEuler:KernelSpace openEuler:Lua openEuler:Meson openEuler:MultiLanguage openEuler:Nodejs openEuler:Ocaml openEuler:Perl openEuler:Python openEuler:Qt openEuler:Ruby)
+if [[ ${OBS_STANDARD_PROJECT} == "openEuler:Mainline" ]];then
+	for p in ${obs_master_project[@]}
+	do
+		tmp="$(echo ${p//:/:\/})"
+		tmp_url="http://${OBS_SERVER_IP}:82/${tmp}/standard_${ARCH}"
+		TMP_STANDARD_REPO_URL="${tmp_url} ${TMP_STANDARD_REPO_URL}"
+	done
+	export OBS_STANDARD_REPO_URL="${TMP_STANDARD_REPO_URL}${OBS_STANDARD_REPO_URL}"
+fi
 
 export RELEASE_ROOT_PATH="/repo/openeuler/dailybuild"
 export RELEASE_VERSION_DIR="${OS_NAME}-${OS_VERSION}"
@@ -53,7 +63,7 @@ export jenkins_build="1"
 export checkdep=true
 
 OBS_REPO_CONF=$(find -iname "obs-repo.conf")
-cat>${OBS_REPO_CONF}<<EOF
+cat>${OBS_REPO_CONF}<<-EOF
 [main]
 cachedir=/var/cache/yum/xxx
 keepcache=0
@@ -65,24 +75,6 @@ gpgcheck=1
 plugins=1
 installonly_limit=3
 reposdir=/xxx
-
-#  This is the default, if you make this bigger yum won't see if the metadata
-# is newer on the remote and so you'll "gain" the bandwidth of not having to
-# download the new metadata and "pay" for it by yum not having correct
-# information.
-#  It is esp. important, to have correct metadata, for distributions like
-# Fedora which don't keep old packages around. If you don't like this checking
-# interupting your command line usage, it's much better to have something
-# manually check the metadata once an hour (yum-updatesd will do this).
-# metadata_expire=90m
-
-# PUT YOUR REPOS HERE OR IN separate files named file.repo
-# in /etc/yum.repos.d
-[obs-standard]
-name=obs-standard
-baseurl=${OBS_STANDARD_REPO_URL}/
-enabled=1
-gpgcheck=0
 
 [obs-Extras]
 name=obs-Extras
@@ -97,6 +89,28 @@ enabled=1
 gpgcheck=0
 
 EOF
+if [[ ${OBS_STANDARD_PROJECT} == "openEuler:Mainline" ]];then
+	i=1
+	for repo_url in ${OBS_STANDARD_REPO_URL[@]}
+	do
+		repo_name="obs_standard_${i}"
+		cat>>${OBS_REPO_CONF}<<-EOF
+		[${repo_name}]
+		name=${repo_name}
+		baseurl=${repo_url}/
+		enabled=1
+		gpgcheck=0
 
+		EOF
+		let i+=1
+	done
+else
+	cat>>${OBS_REPO_CONF}<<-EOF
+	[obs-standard]
+	name=obs-standard
+	baseurl=${OBS_STANDARD_REPO_URL}/
+	enabled=1
+	gpgcheck=0
+	EOF
+fi
 cat ${OBS_REPO_CONF}
-
