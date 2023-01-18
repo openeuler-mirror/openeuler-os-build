@@ -85,7 +85,7 @@ function run_srcipt_all()
     done
 
 }
-source "${BUILD_SCRIPT_DIR}"/setup_env.sh
+#source "${BUILD_SCRIPT_DIR}"/setup_env.sh
 source "${BUILD_SCRIPT_DIR}"/make_tools/init.sh
 source "${BUILD_SCRIPT_DIR}"/make_tools/common.sh
 #source "${BUILD_SCRIPT_DIR}"/make_tools/container_tools.sh
