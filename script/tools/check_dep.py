@@ -216,6 +216,10 @@ def set_exclude_pkg_all_rpms():
             if err_rpm_list:
                 rpms_reason_dict.setdefault("install_problem", []).extend(err_rpm_list)
                 rpms_reason_dict.setdefault("other_rpm_install_problem", []).extend(list(set(rpms) - set(err_rpm_list)))
+        not_find = list(set(file_content) - set(final_rpms_list))
+        if not_find:
+            rpms_reason_dict.setdefault("install_problem", []).extend(not_find)
+            final_rpms_list.extend(not_find)
         if final_rpms_list:
             f1 = open(args.final_exclude_rpm_list_file, "w")
             f2 = open(args.final_source_exclude_rpm_list_file, "w")
