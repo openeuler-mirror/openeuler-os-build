@@ -130,6 +130,10 @@ fi
 			do
 				rpm_dir="${obs_proj}-${ar}-${pkg}"
 				ccb download os_project=${obs_proj} packages=${pkg} architecture=${ar} -b all -s -d 2>/dev/null
+				if [ $? -ne 0 ];then
+					echo "ccb download error."
+					exit 1
+				fi
 				ls ${rpm_dir}/*.rpm | awk -F'/' '{print $NF}' > ${rpm_dir}_rpmlist
 				scp -i ${update_key} -o StrictHostKeyChecking=no ./${rpm_dir}/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
 				rm -f ${rpm_dir}/*.src.rpm 2>/dev/null
@@ -371,6 +375,10 @@ fi
 			do
 				if [[ ${download_type} == "ccb" ]];then
 					ccb download os_project=${obs_proj} packages=${pkg} architecture=${arch} -b all -s -d &>/dev/null
+					if [ $? -ne 0 ];then
+						echo "ccb download error."
+						exit 1
+					fi
 					ls ${obs_proj}-${arch}-${pkg}/*.rpm | awk -F'/' '{print $NF}' > binrpmlist
 				else
 					osc ls -b ${obs_proj} ${pkg} standard_${arch} ${arch} 2>/dev/null | grep rpm > binrpmlist
@@ -414,33 +422,31 @@ fi
 			done
 		done
 		if [ -s NOT_FOUND ];then
-			echo "==========Error: Not Found some binaries rpm in ${update_dir} directory=========="
+			echo "==========Warning: Not Found some binaries rpm in ${update_dir} directory=========="
 			cat NOT_FOUND
 			echo "===================="
-			exit 1
-		else
-			echo "开始发布${update_dir}目录中软件包${pkgs}的二进制到194机器!"
-			ls ${path_list}
-			for arch in ${path_list}
-			do
-				# backup update_xxxx dir some packages binaries rpm into update dir
-				scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${update_ip}:${bak_dir}/${arch}/Packages/
-				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch}"
-				# release some packages binaries rpm to website
-				scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
-				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch}"
-				rm -rf ${arch}
-			done
-			echo "备份及发布成功!"
-			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-			release_pkg="${real_dir}/"
-			for pkg in ${pkgs}
-			do
-				release_pkg="${release_pkg}${pkg}|"
-			done
-			update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
-			scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 		fi
+		echo "开始发布${update_dir}目录中软件包${pkgs}的二进制到194机器!"
+		ls ${path_list}
+		for arch in ${path_list}
+		do
+			# backup update_xxxx dir some packages binaries rpm into update dir
+			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${update_ip}:${bak_dir}/${arch}/Packages/
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch}"
+			# release some packages binaries rpm to website
+			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch}"
+			rm -rf ${arch}
+		done
+		echo "备份及发布成功!"
+		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
+		release_pkg="${real_dir}/"
+		for pkg in ${pkgs}
+		do
+			release_pkg="${release_pkg}${pkg}|"
+		done
+		update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
+		scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 	fi
 }
 
@@ -535,9 +541,17 @@ function del_pkg_rpm(){
 	do
 		if [[ ${download_type} == "ccb" ]];then
 			ccb download os_project=${obs_proj} packages=${pkg} architecture=aarch64 -b all -s -d &>/dev/null
+			if [ $? -ne 0 ];then
+				echo "ccb download error."
+				exit 1
+			fi
 			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > aarch_rpmlist.txt
 			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-aarch64-${pkg}_rpmlist
 			ccb download os_project=${obs_proj} packages=${pkg} architecture=x86_64 -b all -s -d &>/dev/null
+			if [ $? -ne 0 ];then
+				echo "ccb download error."
+				exit 1
+			fi
 			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > x86_rpmlist.txt
 			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-x86_64-${pkg}_rpmlist
 			rm -rf ${obs_proj}-aarch64-${pkg} ${obs_proj}-x86_64-${pkg}
