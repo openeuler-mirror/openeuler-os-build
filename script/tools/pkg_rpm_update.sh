@@ -730,7 +730,7 @@ function prepare_env(){
 
 # Main function
 function main(){
-	ebs_proj_list=(openEuler:22.03:LTS:SP1)
+	ebs_proj_list=(openEuler:22.03:LTS:SP1 openEuler:22.03:LTS:SP2)
 	if [ $1 == "openEuler:Mainline" ];then
 		echo "openEuler:Mainline not need update"
 		exit 3
