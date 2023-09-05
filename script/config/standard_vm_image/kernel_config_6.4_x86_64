@@ -3104,6 +3104,14 @@ CONFIG_UNWINDER_ORC=y
 # end of x86 Debugging
 
 #
+# remote pager device
+#
+# CONFIG_REMOTE_PAGER is not set
+# CONFIG_REMOTE_PAGER_MASTER is not set
+# end of remote pager device
+# end of Device Drivers
+
+#
 # Kernel Testing and Coverage
 #
 # CONFIG_KUNIT is not set
