@@ -85,6 +85,10 @@ def download_xmlfile(args, cvrf_path, obsClient):
     downloads cve xml file
     """
     update_path = os.path.join(cvrf_path, "update_fixed.txt")
+    hotpatch_cvrf = os.path.join(os.getcwd(), "hotpatch_cvrf")
+    if os.path.exists(hotpatch_cvrf):
+        shutil.rmtree(hotpatch_cvrf)
+    os.makedirs(hotpatch_cvrf)
     if os.path.exists(update_path):
         if os.path.getsize(update_path):
             with open(update_path, "r") as f:
@@ -93,10 +97,14 @@ def download_xmlfile(args, cvrf_path, obsClient):
                 if line:
                     line = line.replace('\n', '')
                     year = line.split('/')[0]
-                    year_path = os.path.join(cvrf_path, year)
+                    if "HotPatch" in line:
+                        year_path = os.path.join(hotpatch_cvrf, year)
+                        localfile = os.path.join(hotpatch_cvrf, line)
+                    else:
+                        year_path = os.path.join(cvrf_path, year)
+                        localfile = os.path.join(cvrf_path, line)
                     if not os.path.exists(year_path):
                         os.makedirs(year_path)
-                    localfile = os.path.join(cvrf_path, line)
                     name = os.path.join("cvrf", line)
                     createFile(localfile)
                     download_withfile(args, obsClient, name, localfile)
@@ -112,7 +120,7 @@ def upload_file(args, uploadfile):
     print("Uploading file to publish server.")
     if args.flag == "cve":
         cmd = "scp -i %s -o StrictHostKeyChecking=no -r %s root@%s:/repo/openeuler/security/data/" % (args.sshkey, uploadfile, args.ipadd)
-    elif args.flag == "updateinfo" or args.flag == "hotpatch":
+    elif args.flag == "updateinfo" or args.flag == "updateinfo-hotpatch":
         cmd = "scp -i %s -o StrictHostKeyChecking=no %s root@%s:/repo/" % (args.sshkey, uploadfile, args.ipadd)
     if os.system(cmd) == 0:
         print("Succeed to upload file!")
@@ -128,7 +136,7 @@ def modify_repo(args, branch, xmlfile):
     archive = ['aarch64', 'x86_64', 'source']
     if args.flag == "updateinfo":
         repo_path = f"/repo/openeuler/{branch}/update"
-    if args.flag == "hotpatch":
+    if args.flag == "updateinfo-hotpatch":
         repo_path = f"/repo/openeuler/{branch}/hotpatch_update"
     for arch in archive:
         cmd = "ssh -i %s -o StrictHostKeyChecking=no root@%s 'modifyrepo /repo/%s %s/%s/repodata'" %(
@@ -143,7 +151,7 @@ def modify_repo(args, branch, xmlfile):
 
 def update_cve(args):
     """
-    update cve xml file
+    update cve or hotpatch xml file
     """
     cvrf_path = os.path.join(os.getcwd(), "cvrf")
     if os.path.exists(cvrf_path):
@@ -162,11 +170,29 @@ def update_cve(args):
     if ret == -1:
         print("Nothing to update !")
     else:
+        hotpatch_path = os.path.join(os.getcwd(), "hotpatch_cvrf")
+        hotpatch_index_txt = os.path.join(hotpatch_path, "index.txt")
+        all_index_txt = os.path.join(os.getcwd(), "index.txt")
+        cvrf_index_txt = os.path.join(cvrf_path, "index.txt")
+        shutil.copy(cvrf_index_txt, all_index_txt)
+        f1 = open(all_index_txt, "r")
+        f2 = open(cvrf_index_txt, "w")
+        f3 = open(hotpatch_index_txt, "w")
+        for line in f1:
+            if line:
+                if "HotPatch" in line:
+                    f3.write(line)
+                else:
+                    f2.write(line)
+        f1.close()
+        f2.close()
+        f3.close()
         upload_file(args, cvrf_path)
+        upload_file(args, hotpatch_path)
 
 def update_repo(args):
     """
-    update repodata by updateinfo or hotpatch
+    update repodata by updateinfo or updateinfo-hotpatch
     """
     error_msg = []
     updateinfo_path = os.path.join(os.getcwd(), args.flag)
@@ -208,7 +234,7 @@ def update_repo(args):
 if __name__ == '__main__':
     if args.flag == "cve":
         update_cve(args)
-    elif args.flag == "updateinfo" or args.flag == "hotpatch":
+    elif args.flag == "updateinfo" or args.flag == "updateinfo-hotpatch":
         update_repo(args)
     else:
         print("flag include cve, updateinfo and hotpatch.")
