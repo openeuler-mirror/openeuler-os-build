@@ -50,6 +50,7 @@ export RELEASE_ARCH_DIR="openEuler_${ARCH}"
 export CONTAINER_NAME=$(echo ${RELEASE_VERSION_DIR} | tr A-Z a-z)
 export VM_IMAGE_NAME="${RELEASE_VERSION_DIR}-${ARCH}.qcow2"
 export RASPI_IMAGE_NAME="${RELEASE_VERSION_DIR}-raspi-${ARCH}.img"
+export RISCV64_QEMU_IMAGE_NAME="${RELEASE_VERSION_DIR}-qemu-${ARCH}.qcow2"
 export MICROVM_IMAGE_NAME="${RELEASE_VERSION_DIR}-stratovirt-${ARCH}.img"
 export MICROVM_KERNEL_NAME="vmlinux.bin"
 export STDANDARD_VM_KERNEL_NAME="std-vmlinux"
