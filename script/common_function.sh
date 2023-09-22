@@ -99,6 +99,8 @@ source "${BUILD_SCRIPT_DIR}"/step/release_dir.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_docker_image.sh
 if [ "$STEP" == "make_raspi_image" ];then
     source "${BUILD_SCRIPT_DIR}"/step/make_raspi_image.sh
+elif [ "$STEP" == "make_riscv64_qemu_image" ];then
+    source "${BUILD_SCRIPT_DIR}"/step/make_riscv64_qemu_image.sh
 else
     source "${BUILD_SCRIPT_DIR}"/step/make_microvm_image.sh
 fi

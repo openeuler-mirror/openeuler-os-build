@@ -18,7 +18,7 @@ PARAMS = ['all', 'set_release_dir', 'update_release_info', 'build_and_wait', 'ma
           'make_compile_env_storage', 'make_euleros_certdb', 'make_vm_qcow2', 'make_compile_tools', 'make_images_slim',
           'make_tools_lib_storage', 'make_container_tools', 'make_tools_debug_tools', 'make_upgrade_patch',
           'make_tools_dockertools', 'make_other_tools', 'upload_to_cmc', 'make_upload_cmc_image', 'make_iso_everything',
-          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms', 'make_edge_iso', 'make_desktop_iso']
+          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms', 'make_edge_iso', 'make_desktop_iso', 'make_riscv64_qemu_image']
 
 
 class Build(object):
@@ -160,6 +160,7 @@ def usage():
     print("* make_upgrade_patch              *")
     print("* make_docker_image               *")
     print("* make_raspi_image                *")
+    print("* make_riscv64_qemu_image                *")
     print("* make_container_tools            *")
     print("* make_tools_othertools           *")
     print("* make_tools_lib_storage          *")

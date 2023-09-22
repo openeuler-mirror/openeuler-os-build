@@ -50,7 +50,7 @@ function usage()
     echo "$(basename $0) [script_name|all]"
 }
 
-export ALL_SCRIPT=('build_and_wait' 'update_release_info' 'make_tar' 'make_hmi' 'make_iso' 'make_iso_debug' 'make_iso_singleoss' 'make_livecd' 'make_compile_env' 'make_docker_image' 'make_raspi_image' 'make_microvm_image' 'make_euleros_certdb' 'make_tools_lib_storage' 'make_container_tools' 'make_tools_debug_tools' 'make_upgrade_patch' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'push_lts_dir' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso')
+export ALL_SCRIPT=('build_and_wait' 'update_release_info' 'make_tar' 'make_hmi' 'make_iso' 'make_iso_debug' 'make_iso_singleoss' 'make_livecd' 'make_compile_env' 'make_docker_image' 'make_raspi_image' 'make_riscv64_qemu_image' 'make_microvm_image' 'make_euleros_certdb' 'make_tools_lib_storage' 'make_container_tools' 'make_tools_debug_tools' 'make_upgrade_patch' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'push_lts_dir' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso')
 [[ "${DEBUG}" -eq 1 ]] && set -x
 
 #check_env
