@@ -9,7 +9,6 @@ fi
 set -e
 export OPENEULER_CHROOT_PATH="/usr1/openeuler"
 yum_conf="/home/config/repo_conf/obs-repo.conf"
-chroot_rpm_get_path="${BUILD_SCRIPT_DIR}/oE_Chroot_RPM"
 hw_arch="$(uname -m)"
 IMAGE_SIZE_MB=16384
 
@@ -211,7 +210,9 @@ make_img()
     # locale
     cat ${rootfs_dir}/usr/share/zoneinfo/Asia/Shanghai > ${rootfs_dir}/etc/localtime
     # root password
-    cat /home/config/riscv64_qemu_image/shadow.template > ${rootfs_dir}/etc/shadow
+    shadow_string=$(cat /home/config/riscv64_qemu_image/shadow.template)
+    echo $shadow_string
+    sed -i "s#root:.*#$shadow_string#g" ${rootfs_dir}/etc/fstab
     # hostname
     echo openeuler > ${rootfs_dir}/etc/hostname
 
