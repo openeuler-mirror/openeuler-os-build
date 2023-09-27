@@ -151,8 +151,6 @@ make_rootfs()
     chroot ${rootfs_dir} /bin/bash -c "echo 'Y' | /chroot.sh"
     UMOUNT_ALL
     set -e
-    # REMINDER: remove the Non-RISC-V openEuler.repo installed by openEuler-repo
-    rm ${rootfs_dir}/etc/yum.repos.d/openEuler.repo
     rm ${rootfs_dir}/chroot.sh
     LOG "make rootfs for ${yum_conf} end."
 }
@@ -241,7 +239,7 @@ make_img()
     fi
     if [ -f ${img_file} ]; then
         sha256sum $(basename ${img_file}) > ${img_file}.sha256sum
-        xz -T 20 -z -c ${img_file} > ${img_file}.xz
+        xz -T0 --memlimit=90% -z -c ${img_file} > ${img_file}.xz
         sha256sum $(basename ${img_file}.xz) > ${img_file}.xz.sha256sum
         LOG "made sum files for ${img_file}"
     else
