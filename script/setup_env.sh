@@ -26,7 +26,11 @@ export RELEASE_HTTP_URL="http://121.36.84.172/dailybuild"
 SUB_STANDARD_REPO_URL="$(echo ${OBS_STANDARD_PROJECT//:/:\/})"
 SUB_EPOL_REPO_URL="$(echo ${OBS_EPOL_PROJECT//:/:\/})"
 SUB_EXTRAS_REPO_URL="$(echo ${OBS_EXTRAS_PROJECT//:/:\/})"
-export OBS_STANDARD_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_STANDARD_REPO_URL}/standard_${ARCH}"
+if [[ "${OBS_STANDARD_PROJECT}" =~ "RISC-V" ]] ;then
+    export OBS_STANDARD_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_STANDARD_REPO_URL}/BaseOS"
+else
+    export OBS_STANDARD_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_STANDARD_REPO_URL}/standard_${ARCH}"
+fi
 export OBS_EPOL_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_EPOL_REPO_URL}/standard_${ARCH}"
 export OBS_EXTRAS_REPO_URL="http://${OBS_SERVER_IP}:82/${SUB_EXTRAS_REPO_URL}/standard_${ARCH}"
 export OBS_BRINGINRELY_URL=
