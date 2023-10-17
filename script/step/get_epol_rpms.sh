@@ -11,7 +11,6 @@ set -e
 ######################
 function get_epol_rpms()
 {
-    wait_project_published
     chroot_run "cd /home; bash make_version.sh get_epol_rpms_inchroot"
 }
 ######################
