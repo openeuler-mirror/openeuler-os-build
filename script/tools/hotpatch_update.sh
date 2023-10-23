@@ -122,6 +122,26 @@ function update_repodata() {
 	done
 }
 
+# download public key and upload
+function config_public_key() {
+	echo "Added RPM-GPG-KEY-openEuler in the ${update_path} directory."
+	rm -f RPM-GPG-KEY-openEuler
+	wget -q https://repo.openeuler.org/${branch}/OS/aarch64/RPM-GPG-KEY-openEuler
+	if [ $? -ne 0 ];then
+		echo "Error: wget https://repo.openeuler.org/${branch}/OS/aarch64/RPM-GPG-KEY-openEuler failed."
+		exit 1
+	fi
+	for ar in ${arch_list[@]}
+	do
+		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR ./RPM-GPG-KEY-openEuler root@${source_ip}:${update_path}/${ar}/
+		if [ $? -ne 0 ];then
+			echo "Error: scp RPM-GPG-KEY-openEuler to ${update_path}/${ar} failed."
+			exit 1
+		fi
+	done
+	rm -f RPM-GPG-KEY-openEuler
+}
+
 # Create UPDATE directory and add package binaries
 function create() {
 	echo "Added ${rpmname[@]} hot patches and xml files in the ${update_path} directory."
@@ -265,6 +285,7 @@ function main() {
 	prepare_env
 	if [ ${operation} == "create" ];then
 		create
+		config_public_key
 		update_pkglist_file
 		update_json_file
 	elif [ ${operation} == "delete_update_dir" ];then
