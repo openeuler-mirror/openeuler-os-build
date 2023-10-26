@@ -126,9 +126,9 @@ function update_repodata() {
 function config_public_key() {
 	echo "Added RPM-GPG-KEY-openEuler in the ${update_path} directory."
 	rm -f RPM-GPG-KEY-openEuler
-	wget -q https://repo.openeuler.org/${branch}/OS/aarch64/RPM-GPG-KEY-openEuler
+	wget -q https://repo.openeuler.org/openEuler-22.03-LTS-SP2/OS/aarch64/RPM-GPG-KEY-openEuler
 	if [ $? -ne 0 ];then
-		echo "Error: wget https://repo.openeuler.org/${branch}/OS/aarch64/RPM-GPG-KEY-openEuler failed."
+		echo "Error: wget https://repo.openeuler.org/openEuler-22.03-LTS-SP2/OS/aarch64/RPM-GPG-KEY-openEuler failed."
 		exit 1
 	fi
 	for ar in ${arch_list[@]}
