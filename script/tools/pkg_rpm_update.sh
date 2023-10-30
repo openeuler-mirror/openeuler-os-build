@@ -331,11 +331,11 @@ fi
 			mkdir $path
 			# backup update_xxxx dir rpm into update dir
 			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cp -rf ${update_dir}/${path}/Packages/*.rpm ${bak_dir}/${path}/Packages/"
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${path}"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${path} --workers 32"
 			# release rpm to website
 			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${path}/Packages/*.rpm ./$path/
 			scp -i ${update_key} -o StrictHostKeyChecking=no ./$path/*.rpm root@${release_ip}:${repo_path}/${path}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${path}/repodata && createrepo -d ${path}"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${path}/repodata && createrepo -d ${path} --workers 32"
 			rm -rf $path
 		done
 		echo "备份及发布${update_dir}成功!"
@@ -390,7 +390,7 @@ fi
 						src_rpm=`cat binrpmlist | grep "src.rpm"`
 						tmp_name=`echo ${src_rpm%-*}`
 						src_rpm_name=`echo ${tmp_name%-*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep ${src_rpm_name}-[0-9]*.rpm"`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep -E ${src_rpm_name}-[a-zA-Z0-9.]+-[a-zA-Z0-9]+.oe"`
 						if [[ "x${result}" == "x" ]];then
 							echo "$src_rpm_name-xxx.src.rpm" >> NOT_FOUND
 							flag=1
@@ -407,7 +407,7 @@ fi
 					do
 						tmp_name=`echo ${line%-*}`
 						name=`echo ${tmp_name%-*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep ${name}-[0-9]*.rpm"`
+						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep -E ${name}-[a-zA-Z0-9.]+-[a-zA-Z0-9]+.oe"`
 						if [[ "x${result}" == "x" ]];then
 							echo "${name}-xxx.${arch}.rpm" >> NOT_FOUND
 						else
@@ -432,10 +432,10 @@ fi
 		do
 			# backup update_xxxx dir some packages binaries rpm into update dir
 			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${update_ip}:${bak_dir}/${arch}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch}"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch} --workers 32"
 			# release some packages binaries rpm to website
 			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch}"
+			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch} --workers 32"
 			rm -rf ${arch}
 		done
 		echo "备份及发布成功!"
