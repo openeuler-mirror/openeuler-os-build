@@ -2,22 +2,20 @@
 # --------------------------------------------------------------------------------------------------------------------
 # Author: 
 # Copyright Huawei Technologies Co., Ltd. 2010-2018. All rights reserved.
-# Decription: Create an UPDATE directory to add, delete, update, check and publish package binaries
 # --------------------------------------------------------------------------------------------------------------------
-
+. chroot_libs.sh
 
 # usage
 function usage() {
     cat << EOF
-Usage: sh docker_image_update.sh [Operation] [Branch] [Openeuler_dir] [Update_dir] [Source_ip] [Release_ip] [Publish_key]
+Usage: bash docker_image_update.sh [Operation] [Branch] [Update_dir] [Source_ip] [Release_ip] [Publish_key]
 
 optional arguments:
-    Operation     Operation method, include: create, update, delete_update_dir and release
+    Operation     Operation method, include: create, delete_update_dir and release
     Branch        Branch name, such as: openEuler-22.03-LTS
-    Openeuler_dir build directory start with openeuler- on the dailybuild server
     Update_dir    Update directory name
-    Source_ip     Server of store hotpatch
-    Release_ip    Server of release hotpatch
+    Source_ip     Server of source
+    Release_ip    Server of release
     Publish_key   Server of publish key
 EOF
 }
@@ -76,18 +74,46 @@ function update_json_file() {
 	fi
 }
 
-# create update directory and add docker image
+function config_repo()
+{
+	rm -rf /etc/yum.repos.d.bak
+	mv /etc/yum.repos.d /etc/yum.repos.d.bak
+	mkdir -p /etc/yum.repos.d
+	export yum_conf="/etc/yum.repos.d/my.repo"
+	touch ${yum_conf}
+	i=1
+	for repo in ${repo_url[@]}
+	do
+		cat >> ${yum_conf} <<-EOF
+		[repo_$i]
+		name=repo_$i
+		baseurl=${repo}
+		enabled=1
+		gpgcheck=0
+
+		EOF
+		let i=i+1
+	done
+	cat /etc/yum.repos.d/my.repo
+}
+
+# create update directory and docker image
 function create() {
 	echo "add docker image into the ${update_dir} directory."
-	for ar in ${arch_list[@]}
-	do
-		cmd="if [ ! -d ${update_path}/${ar} ];then mkdir -p ${update_path}/${ar};fi"
-		ssh_cmd ${source_ip} "${cmd}"
-		cmd="cp ${source_img_dir}/${ar}/openEuler-docker.${ar}.tar.xz ${update_path}/${ar}/"
-		ssh_cmd ${source_ip} "${cmd}"
-		cmd="cp ${source_img_dir}/${ar}/openEuler-docker.${ar}.tar.xz.sha256sum ${update_path}/${ar}/"
-		ssh_cmd ${source_ip} "${cmd}"
-	done
+	cmd="if [ ! -d ${update_path}/${ARCH} ];then mkdir -p ${update_path}/${ARCH};fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	config_repo
+	chroot_init
+	chroot "${root_path}" /bin/bash --login -c "cd /home/; bash make_docker.sh"
+	if [ -f "${root_path}/result/docker_image/image/openEuler-docker.${ARCH}.tar.xz" ];then
+		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -r ${root_path}/result/docker_image/image/openEuler-docker.${ARCH}.tar.xz root@${source_ip}:${update_path}/${ARCH}/
+		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -r ${root_path}/result/docker_image/image/openEuler-docker.${ARCH}.tar.xz.sha256sum root@${source_ip}:${update_path}/${ARCH}/
+	else
+		echo "make docker image failed."
+		chroot_clean
+		exit 1
+	fi
+	chroot_clean
 }
 
 # delete update_xxx directory
@@ -95,27 +121,6 @@ function delete_update_dir() {
 	echo "delete the ${update_path} directory."
 	cmd="if [ -d ${update_path} ];then rm -rf ${update_path};fi"
 	ssh_cmd ${source_ip} "${cmd}"
-}
-
-# delete docker image
-function delete_docker_image() {
-	echo "delete docker image from the ${update_path} directory."
-	cmd="if [ ! -d ${update_path} ];then echo \"Error: ${update_path} is not exist.\" && exit 1;fi"
-	ssh_cmd ${source_ip} "${cmd}"
-	for ar in ${arch_list[@]}
-	do
-		cmd="rm -f ${update_path}/${ar}/openEuler-docker.${ar}.tar.xz"
-		ssh_cmd ${source_ip} "${cmd}"
-		cmd="rm -f ${update_path}/${ar}/openEuler-docker.${ar}.tar.xz.sha256sum"
-		ssh_cmd ${source_ip} "${cmd}"
-	done
-}
-
-# update docker image
-function update() {
-	echo "update docker image in the ${update_path} directory."
-	delete_docker_image
-	create
 }
 
 # publish docker image file
@@ -152,7 +157,7 @@ function release() {
 
 # main function
 function main() {
-	if [ $# -lt 6 ] || [ $# -gt 7 ];then
+	if [ $# -lt 5 ] || [ $# -gt 6 ];then
 		echo "Error: please check the params."
 		usage
 		exit 1
@@ -160,25 +165,15 @@ function main() {
 
 	operation=$1
 	branch_name=$2
-	openeuler_dir=$3
-	update_dir=$4
-	source_ip=$5
-	release_ip=$6
-	publish_key=$7
+	update_dir=$3
+	source_ip=$4
+	release_ip=$5
+	publish_key=$6
 
 	if [ -z "${operation}" ] || [ -z "${branch_name}" ] || [ -z "${update_dir}" ] || [ -z "${source_ip}" ] || [ -z "${release_ip}" ] || [ -z "${publish_key}" ];then
 		echo "Error: please check the params."
 		usage
 		exit 1
-	fi
-
-	need_openeuler_dir=(create update)
-	if [[ ${need_openeuler_dir[@]} =~ ${operation} ]];then
-		if [ -z "${openeuler_dir}" ];then
-			echo "Error: openeuler_dir is empty."
-			usage
-			exit 1
-		fi
 	fi
 
 	if [ "x${update_dir}" == "x" ];then
@@ -187,7 +182,6 @@ function main() {
 
 	arch_list=(aarch64 x86_64)
 	need_modify_json=(create delete_update_dir release)
-	source_img_dir="/repo/openeuler/dailybuild/${branch_name}/${openeuler_dir}/docker_img"
 
 	if [[ ${branch_name} =~ "EBS-" ]];then
 	    branch_name=${branch_name#*-}
@@ -199,6 +193,8 @@ function main() {
 	date_str="$(date +%Y-%m-%d)"
 	backup_path="${branch_path}/docker_img/update/${date_str}"
 	release_path="/repo/openeuler/${branch_name}/docker_img/update/${date_str}"
+	ARCH=$(arch)
+	export repo_url="https://repo.openeuler.org/${branch_name}/everything/${ARCH} https://repo.openeuler.org/${branch_name}/update/${ARCH}"
 
 	if [ ${operation} == "create" ];then
 		create
@@ -206,8 +202,6 @@ function main() {
 	elif [ ${operation} == "delete_update_dir" ];then
 		delete_update_dir
 		update_json_file
-	elif [ ${operation} == "update" ];then
-		update
 	elif [ ${operation} == "release" ];then
 		release
 		update_json_file
