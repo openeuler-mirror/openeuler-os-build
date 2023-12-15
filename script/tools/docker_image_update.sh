@@ -154,6 +154,11 @@ function release() {
 	done
 }
 
+# link latest date dir
+function link_latest_dir() {
+	cmd="cd ${docker_update_path} && rm -rf current && ln -s ${date_str} current"
+	ssh_cmd ${release_ip} "${cmd}"
+}
 
 # main function
 function main() {
@@ -192,7 +197,8 @@ function main() {
 	json_file_path="${branch_path}/docker_img/${json_file_name}"
 	date_str="$(date +%Y-%m-%d)"
 	backup_path="${branch_path}/docker_img/update/${date_str}"
-	release_path="/repo/openeuler/${branch_name}/docker_img/update/${date_str}"
+	docker_update_path="/repo/openeuler/${branch_name}/docker_img/update"
+	release_path="${docker_update_path}/${date_str}"
 	ARCH=$(arch)
 	export repo_url="https://repo.openeuler.org/${branch_name}/everything/${ARCH} https://repo.openeuler.org/${branch_name}/update/${ARCH}"
 
@@ -204,6 +210,7 @@ function main() {
 		update_json_file
 	elif [ ${operation} == "release" ];then
 		release
+		link_latest_dir
 		update_json_file
 	else
 		echo "Error: not support function:${operation}."
