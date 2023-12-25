@@ -60,7 +60,7 @@ def build_jenkins_job():
     file_name = None
     baseuri, branch, date_dir = args.target_path.split("/")
 
-    server = jenkins.Jenkins("https://jenkins.osinfra.cn", username=args.jenkins_user, password=args.jenkins_api_token, timeout=120)
+    server = jenkins.Jenkins("https://openeulerjenkins.osinfra.cn", username=args.jenkins_user, password=args.jenkins_api_token, timeout=120)
     if not server.job_exists(args.job_name):
         log.error("%s is not exists" % args.job_name)
         sys.exit(1)
