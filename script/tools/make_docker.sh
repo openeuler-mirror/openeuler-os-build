@@ -51,6 +51,7 @@ function make_image()
 
 	version_time="openeuler-$(date +%Y-%m-%d-%H-%M-%S)"
 	sed -i "s#IMAGE_NAME#${version_time}#" "${docker_config}/config.xml"
+	sed -i 's/container=.*>/container=\"'${branch}'\">/g' "${docker_config}/config.xml"
 	sed -i "/obs_repo_here/a <repository type=\"rpm-md\"><source path=\"${repo_url}\" \/></repository>" "${docker_config}/config.xml"
 	cp "${docker_config}/config.xml" "${cfg_dir}"
 	cp "${docker_config}/images.sh" "${cfg_dir}"
