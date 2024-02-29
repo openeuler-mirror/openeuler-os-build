@@ -104,6 +104,7 @@ function create() {
 	ssh_cmd ${source_ip} "${cmd}"
 	config_repo
 	chroot_init
+	export branch=$(echo ${branch_name} | tr A-Z a-z)
 	chroot "${root_path}" /bin/bash --login -c "cd /home/; bash make_docker.sh"
 	if [ -f "${root_path}/result/docker_image/image/openEuler-docker.${ARCH}.tar.xz" ];then
 		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -r ${root_path}/result/docker_image/image/openEuler-docker.${ARCH}.tar.xz root@${source_ip}:${update_path}/${ARCH}/
