@@ -99,6 +99,7 @@ function make_docker_image_inchroot()
         sed -i "/obs_repo_here/a <repository type=\"rpm-md\"><source path=\"${repo_url}\" \/></repository>" "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml
     done
     cp -a "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml "${cfg_dir}"/config.xml
+    sed -i "/exit/i python3 -c \"import pathlib;import shutil;[shutil.rmtree(p) for p in pathlib.Path('/').rglob('__pycache__')]\"" "${BUILD_SCRIPT_DIR}/config/docker_image/images.sh"
     cp "${BUILD_SCRIPT_DIR}"/config/docker_image/images.sh "${cfg_dir}"
 
     chmod 700 /var/run/screen/S-root
