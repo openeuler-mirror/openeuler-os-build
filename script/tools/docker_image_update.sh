@@ -201,7 +201,7 @@ function main() {
 	docker_update_path="/repo/openeuler/${branch_name}/docker_img/update"
 	release_path="${docker_update_path}/${date_str}"
 	ARCH=$(arch)
-	export repo_url="https://repo.openeuler.org/${branch_name}/everything/${ARCH} https://repo.openeuler.org/${branch_name}/update/${ARCH}"
+	export repo_url="https://repo.openeuler.openatom.cn/${branch_name}/everything/${ARCH} https://repo.openeuler.openatom.cn/${branch_name}/update/${ARCH}"
 
 	if [ ${operation} == "create" ];then
 		create
