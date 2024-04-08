@@ -196,8 +196,7 @@ def set_exclude_pkg_all_rpms():
     if file_content:
         print("============ start search all rpms of exclude rpm list ===========")
         pkg_rpms_list = []
-        cmd = "uname -m"
-        arch = os.popen(cmd).read().strip()
+        arch = platform.machine()
         cmd = f"osc list {args.project} 2>/dev/null"
         res = os.popen(cmd).read().split()
         pkglist = [x for x in res if x != '']
