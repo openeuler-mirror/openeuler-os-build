@@ -184,6 +184,7 @@ fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
 	check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "create"
 	remove_published_rpm ${obs_proj} ${pkglist} ${publish_path} ${update_path} ${update_key} ${pkg_place}
+	pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "update"
 }
 
 # Remove published rpms in update_xxx
@@ -490,6 +491,37 @@ fi
 	copy_rpm ${obs_proj} ${pkglist} ${update_key} ${pkg_place} ${up_dir} "update"
 }
 
+# create pkg rpm info file
+function pkg_rpm_csv(){
+	project=$1
+	pkglist=$2
+	update_key=$3
+	update_path=$4
+	branch=$5
+	action=$6
+	pkgs=${pkglist//,/ }
+	csv_file="${branch}.csv"
+	rm -f ${csv_file}
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/${csv_file} .
+	if [ ! -f "${csv_file}" ];then
+		touch ${csv_file}
+	fi
+
+	for pkg in ${pkgs}
+	do
+		rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist | sort | uniq)
+		if [[ ${pkg} == "kernel:kernel" ]];then
+			local pkg="kernel"
+		fi
+		sed -i "/${pkg},/d" ${csv_file}
+		if [[ ${action} == "update" ]];then
+			line="${pkg},${rpms[@]}"
+			echo ${line} >> ${csv_file}
+		fi
+	done
+	scp -i ${update_key} -o StrictHostKeyChecking=no ${csv_file} root@${update_ip}:${update_path}/
+}
+
 # Delete packages binaries
 function del_pkg_rpm(){
 	local obs_proj=$1
@@ -597,6 +629,7 @@ function del_pkg_rpm(){
 		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
 		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
 		check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "delete"
+		pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "delete"
 	fi
 }
 
