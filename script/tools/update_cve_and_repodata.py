@@ -127,6 +127,33 @@ def download_xmlfile(args, cvrf_path, obsClient):
     else:
         return -1
 
+def download_csaffile(args, csaf_path, obsClient, dir_name):
+    """
+    downloads csaf file
+    """
+    update_path = os.path.join(csaf_path, "update_fixed.txt")
+    
+    if os.path.exists(update_path):
+        if os.path.getsize(update_path):
+            with open(update_path, "r") as f:
+                filemsg = f.readlines()
+            for line in filemsg:
+                if line:
+                    line = line.replace('\n', '')
+                    year = line.split('/')[0]
+                    year_path = os.path.join(csaf_path, year)
+                    localfile = os.path.join(csaf_path, line)
+
+                    if not os.path.exists(year_path):
+                        os.makedirs(year_path)
+                    name = os.path.join("csaf", os.path.join(dir_name, line))
+                    createFile(localfile)
+                    download_withfile(args, obsClient, name, localfile)
+        else:
+            return -1
+    else:
+        return -1
+
 def upload_xml_file(args, uploadfile, cvrf_name):
     """
     upload xml files to publish server
@@ -136,6 +163,17 @@ def upload_xml_file(args, uploadfile, cvrf_name):
         dest_dir = "/repo/openeuler/security/data/"
     elif cvrf_name == "BA":
         dest_dir = "/repo/openeuler/bugFix/data/"
+def upload_xml_file(args, uploadfile, cvrf_name):
+    """
+    upload xml files to publish server
+    """
+    print("Uploading xml file to publish server.")
+    if cvrf_name == "SA" or cvrf_name == "HotPatchSA":
+        dest_dir = "/repo/openeuler/security/data/"
+    elif cvrf_name == "BA":
+        dest_dir = "/repo/openeuler/bugFix/data/"
+    else:
+        dest_dir = "/repo/openeuler/security/data/csaf/"
     cmd = "ssh -i %s -o StrictHostKeyChecking=no root@%s 'if [ ! -d %s ];then mkdir -p %s;fi'" % (args.sshkey, args.ipadd, dest_dir, dest_dir)
     if os.system(cmd) != 0:
         print("Fail to create directory:%s" % dest_dir)
@@ -271,10 +309,39 @@ def update_repo(args):
             print(msg)
         sys.exit(1)
 
+def update_csaf(args):
+    """
+    update csaf file
+    """
+    dir_list = ["advisories", "cve"]
+    for dir_name in dir_list:
+        csaf_path = os.path.join(os.getcwd(), os.path.join("csaf", dir_name))
+        if os.path.exists(csaf_path):
+            shutil.rmtree(csaf_path)
+        os.makedirs(csaf_path)
+
+        for name in args.filename.split(','):
+            localfile = os.path.join(csaf_path, name)
+            createFile(localfile)
+            obsClient = construct_obsClient(args)
+            name = os.path.join("csaf", os.path.join(dir_name, name))
+            download_withfile(args, obsClient, name, localfile)
+    
+        ret = download_csaffile(args, csaf_path, obsClient, dir_name)
+        update_path = os.path.join(csaf_path, "update_fixed.txt")
+        if os.path.exists(update_path):
+            os.remove(update_path)
+    
+        if ret == -1:
+            print("dir %s Nothing to update !" % dir_name)
+        else:
+            upload_xml_file(args, csaf_path, dir_name)
 
 if __name__ == '__main__':
     if args.flag == "cve":
         update_cve(args)
+    if args.flag == "csaf":
+        update_csaf(args)
     elif args.flag == "updateinfo" or args.flag == "updateinfo-hotpatch":
         update_repo(args)
     else:
