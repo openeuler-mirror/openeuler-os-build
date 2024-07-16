@@ -94,29 +94,31 @@ def build_jenkins_job():
         if tmp['fileName'].endswith('.zip'):
             file_name = tmp['fileName']
     log.info("job url:%s" % job_url)
-    log.info("file name:%s" % file_name)
     return job_url, file_name
 
 def download_file(job_url, file_name):
     """
     download file
     """
-    file_url = os.path.join(job_url, "artifact", file_name)
     wsl_path = os.path.join(os.getcwd(), "WSL")
-    local_file_path = os.path.join(wsl_path, file_name)
     if os.path.exists(wsl_path):
         shutil.rmtree(wsl_path)
     os.makedirs(wsl_path)
-    req = get_requests_result(file_url)
-    with open(local_file_path, "wb") as f:
-        f.write(req.content)
-    if os.path.exists(local_file_path) and os.path.getsize(local_file_path) > 0:
-        log.info("download file succeed")
-        cmd = f"ls -lh {local_file_path}"
-        ret = os.system(cmd)
-    else:
-        log.error("download file failed")
-        sys.exit(1)
+    sha256sum_file_name = file_name + ".sha256sum"
+    all_file = [file_name, sha256sum_file_name]
+    for name in all_file:
+        file_url = os.path.join(job_url, "artifact", name)
+        local_file_path = os.path.join(wsl_path, name)
+        req = get_requests_result(file_url)
+        with open(local_file_path, "wb") as f:
+            f.write(req.content)
+        if os.path.exists(local_file_path) and os.path.getsize(local_file_path) > 0:
+            log.info("download file:%s succeed" % name)
+        else:
+            log.error("download file:%s failed" % name)
+            sys.exit(1)
+    cmd = f"ls -lh {wsl_path}"
+    _ = os.system(cmd)
     return wsl_path
 
 def upload_file(source_dir):
