@@ -20,11 +20,11 @@ function get_latest()
     port=$4
     version=${release_path#*dailybuild/}
     daily_dir=""
-    while [[ ! ${daily_dir} ]]
+    for((i=0;i<=5;i++))
     do
         daily_dir=$(get_repose ssh -i ${key_file} -p ${port} root@${ip} ls -lr ${release_path} | grep openeuler- | grep -v ${version} | grep -v test | grep -v total | grep -v established | awk '{print $9}' | grep ^openeuler- | head -n 1 | tr -d '\r')
     done
-    echo ${daily_dir}
+    return ${daily_dir}
 }
 
 function umount_iso()
@@ -111,7 +111,14 @@ if [[ -n "${target_dir}" ]];then
     target_dir=${target_dir// /}
     latest_path=${release_path}/${target_dir}
 else
-    latest_path=${release_path}/$(get_latest ${release_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
+    result=$(get_latest ${release_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
+    if [[ -n ${result} ]];then
+        latest_path=${release_path}/${result}
+    else
+	echo "latest dir is null"
+	exit 0
+    fi
+
 fi
 iso_list=$(get_iso_list ${latest_path} ${key_file} ${dailybuild_ip} ${dailybuild_port})
 umount_iso ${latest_path} ${key_file} ${dailybuild_ip} ${dailybuild_port}
