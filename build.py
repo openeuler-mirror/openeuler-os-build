@@ -60,37 +60,24 @@ class Build(object):
         self.env["ISCI"] = "0"
         return True
 
-    def set_obs_project(self, obs_standard_prj, obs_epol_prj, obs_extras_prj, obs_repo_ip, check_dep):
+    def set_obs_project(self, standard_prj, standard_prj_repo, epol_prj_repo, check_dep):
         """
-        obs_standard_prj:
-        obs_epo_prj:
-        obs_extras_prj:
+        standard_prj:
+        standard_prj_repo:
+        epo_prj_repo:
         """
+        cmd = "sed -i 's/STANDARD_PROJECT=.*/STANDARD_PROJECT=%s/g' script/setup_env.sh" % standard_prj
+        rmsg = os.popen(cmd).read()
+        print(rmsg)
+        cmd = "perl -pi -e 's#STANDARD_PROJECT_REPO=.*#STANDARD_PROJECT_REPO=%s#g' script/setup_env.sh" % standard_prj_repo
+        rmsg = os.popen(cmd).read()
+        print(rmsg)
+        cmd = "perl -pi -e 's#EPOL_PROJECT_REPO=.*#EPOL_PROJECT_REPO=%s#g' script/setup_env.sh" % epol_prj_repo
+        rmsg = os.popen(cmd).read()
+        print(rmsg)
         cmd = "sed -i 's/checkdep=.*/checkdep=%s/g' script/setup_env.sh" % check_dep
         rmsg = os.popen(cmd).read()
         print(rmsg)
-        if obs_repo_ip:
-            cmd = "sed -i 's/OBS_SERVER_IP=.*/OBS_SERVER_IP=%s/g' script/setup_env.sh" % obs_repo_ip
-            rmsg = os.popen(cmd).read()
-            print(rmsg)
-        cmd = "sed -i 's/OBS_STANDARD_PROJECT=.*/OBS_STANDARD_PROJECT=%s/g' script/setup_env.sh" % obs_standard_prj
-        rmsg = os.popen(cmd).read()
-        print(rmsg)
-        cmd = "sed -i 's/OBS_EPOL_PROJECT=.*/OBS_EPOL_PROJECT=%s/g' script/setup_env.sh" % obs_epol_prj
-        rmsg = os.popen(cmd).read()
-        print(rmsg)
-        cmd = "sed -i 's/OBS_EXTRAS_PROJECT=.*/OBS_EXTRAS_PROJECT=%s/g' script/setup_env.sh" % obs_extras_prj
-        rmsg = os.popen(cmd).read()
-        print(rmsg)
-        cmd = "cat script/setup_env.sh | grep OBS_EPOL_MULTI_VERSION_LIST"
-        rmsg = os.popen(cmd).read().split("=")[1].replace("\n", "")
-        if not rmsg:
-            cmd = "osc list | grep ^%s:Multi" % obs_epol_prj
-            rmsg = os.popen(cmd).read().replace("\n", " ").strip()
-            cmd = "sed -i 's/OBS_EPOL_MULTI_VERSION_LIST=.*/OBS_EPOL_MULTI_VERSION_LIST=\"{0}\"/g' \
-                    script/setup_env.sh".format(rmsg)
-            rmsg = os.popen(cmd).read()
-            print(rmsg)
 
     def clean(self):
         """
@@ -119,7 +106,11 @@ class Build(object):
             if os.system(cmd) != 0:
                 logger.error("build fail")
                 return -1
-            code = trace_execute("bash -x {0} {1}".format(
+            cmd = "bash -x reset_release_server_ip.sh"
+            if os.system(cmd) != 0:
+                logger.error("build fail")
+                return -1
+            code = trace_execute("bash {0} {1}".format(
                 self.local_build_shell_path, step), env=self.env, logger=logger)
             if code != 0 and code != "0":
                 logger.error("build fail")
@@ -145,27 +136,20 @@ def usage():
     print("* Commands:                       *")
     print("* all                     default *")
     print("* clean                           *")
-    print("* make_tar                        *")
-    print("* make_hmi                        *")
+    print("* set_release_dir                 *")
+    print("* get_epol_rpms                   *")
     print("* make_iso                        *")
     print("* make_edge_iso                   *")
     print("* make_desktop_iso                *")
-    print("* make_livecd                     *")
-    print("* build_and_wait                  *")
-    print("* make_iso_debug                  *")
     print("* make_netinst_iso                *")
-    print("* make_compile_env                *")
-    print("* make_euleros_certdb             *")
-    print("* update_release_info             *")
-    print("* make_upgrade_patch              *")
-    print("* make_docker_image               *")
+    print("* make_iso_everysrc               *")
+    print("* make_iso_everything             *")
+    print("* make_debug_everything           *")
+    print("* make_hmi                        *")
     print("* make_raspi_image                *")
-    print("* make_riscv64_qemu_image                *")
-    print("* make_container_tools            *")
-    print("* make_tools_othertools           *")
-    print("* make_tools_lib_storage          *")
-    print("* make_tools_debug_tools          *")
-    print("* get_epol_rpms                   *")
+    print("* make_docker_image               *")
+    print("* make_microvm_image              *")
+    print("* make_riscv64_qemu_image         *")
     print("*                                 *")
     print("***********************************")
     return -1
@@ -176,22 +160,20 @@ if __name__ == "__main__":
     par = argparse.ArgumentParser()
     par.add_argument("-i", "--step_info",
                      help="what you want to do", required=True)
-    par.add_argument("-s", "--obs_standard_prj",
-                     help="obs standard project", required=True)
-    par.add_argument("-ep", "--obs_epol_prj",
-                     help="obs epol project", required=True)
-    par.add_argument("-ex", "--obs_extras_prj",
-                     help="obs extras project", required=True)
-    par.add_argument("-ip", "--obs_repo_ip",
-                     help="obs repo ip", required=False)
+    par.add_argument("-sp", "--standard_prj",
+                     help="standard project", required=True)
+    par.add_argument("-spr", "--standard_prj_repo",
+                     help="standard project repo", required=True)
+    par.add_argument("-epr", "--epol_prj_repo",
+                     help="epol project repo", required=True)
     par.add_argument("-c", "--check_dep", default="false",
                      help="check rpm dependence", required=False)
     args = par.parse_args()
 
     build = Build()
-    build.set_obs_project(args.obs_standard_prj,
-                          args.obs_epol_prj, args.obs_extras_prj,
-                          args.obs_repo_ip, args.check_dep)
+    build.set_obs_project(args.standard_prj,
+                          args.standard_prj_repo, args.epol_prj_repo,
+                          args.check_dep)
     one_step = args.step_info
     if one_step == "clean":
         ret = build.clean()

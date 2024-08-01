@@ -26,7 +26,7 @@ function make_iso_everysrc_inchroot()
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
 
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
     if rpm -q oemaker &> /dev/null; then
        yum remove oemaker -y
@@ -48,8 +48,8 @@ function make_iso_everysrc_inchroot()
         sed -i '/<packagelist type="src_exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
     sed -i '/parse_rpmlist_xml \"conflict\"/d' rpm.sh
-    OBS_STANDARD_REPO_URL=${OBS_STANDARD_REPO_URL%/*}
-    REPOS=`echo "${OBS_STANDARD_REPO_URL}/standard_aarch64 ${OBS_STANDARD_REPO_URL}/standard_x86_64 ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
+    STANDARD_PROJECT_REPO=${STANDARD_PROJECT_REPO%/*}
+    REPOS=`echo "${STANDARD_PROJECT_REPO}/aarch64 ${STANDARD_PROJECT_REPO}/x86_64 ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     while [ "${num}" -lt 3 ]
@@ -78,9 +78,6 @@ function make_iso_everysrc_inchroot()
     fi
     create_checksum "${TGZ_NAME}"
 
-    #TIME_DIR="${PRE_VERSION}/${VERSION}/${version}-${TIME}"
-    #log_info "${HTTP_DIR}/${TIME_DIR}" > "${WORK_DIR}"releasedir_info
-    CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/ISO/source"
     MOUNT_DIR="${release_dir}/source"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"

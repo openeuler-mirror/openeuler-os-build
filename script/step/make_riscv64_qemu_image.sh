@@ -8,7 +8,7 @@ fi
 
 set -e
 export OPENEULER_CHROOT_PATH="/usr1/openeuler"
-yum_conf="/home/config/repo_conf/obs-repo.conf"
+yum_conf="/home/config/repo_conf/repofile.conf"
 hw_arch="$(uname -m)"
 IMAGE_SIZE_MB=16384
 

@@ -8,10 +8,12 @@ function set_release_dir()
     version="openeuler"
     [ -z "${version}" ] && log_error "You must set version in config file or from CI web page"
     log_info "------------the version is ${version}-----------"
-    SSH_CMD="mkdir -p ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64; echo ${version} > ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/version; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/version"
-    sshcmd "${SSH_CMD}"
-    SSH_CMD="mkdir -p ${HTTP_DIR}/${PRE_VERSION}/${version}_X86; echo ${version} > ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/version; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/version"
-    sshcmd "${SSH_CMD}"
+    arch_list=(ARM64 X86)
+    for arch in ${arch_list[@]}
+    do
+        SSH_CMD="mkdir -p ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}; echo ${version} > ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/version; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/version"
+        sshcmd "${SSH_CMD}"
+    done
 
     if [ -f "${WORK_DIR}DEBUG" ]
     then
@@ -19,19 +21,20 @@ function set_release_dir()
     else
         debug='nodebug'
     fi
-    
-    SSH_CMD="echo ${debug} > ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/log_level; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/log_level"
-    sshcmd "${SSH_CMD}"
-    SSH_CMD="echo ${debug} > ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/log_level; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/log_level"
-    sshcmd "${SSH_CMD}"
+    for arch in ${arch_list[@]}
+    do
+        SSH_CMD="echo ${debug} > ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/log_level; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/log_level"
+        sshcmd "${SSH_CMD}"
+    done
 
     release_tmp='release_tmp'
     TIME=$(date +%Y-%m-%d-%H-%M-%S)
     TIME_DIR="${PRE_VERSION}/${version}-${TIME}"
-    SSH_CMD="echo ${HTTP_DIR}/${TIME_DIR} > ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/${release_tmp}; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_ARM64/${release_tmp}"
-    sshcmd "${SSH_CMD}"
-    SSH_CMD="echo ${HTTP_DIR}/${TIME_DIR} > ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/${release_tmp}; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_X86/${release_tmp}"
-    sshcmd "${SSH_CMD}"
+    for arch in ${arch_list[@]}
+    do
+        SSH_CMD="echo ${HTTP_DIR}/${TIME_DIR} > ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/${release_tmp}; chmod 644 ${HTTP_DIR}/${PRE_VERSION}/${version}_${arch}/${release_tmp}"
+        sshcmd "${SSH_CMD}"
+    done
 }
 
 # get release dir

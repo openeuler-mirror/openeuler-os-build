@@ -2,7 +2,7 @@
 
 set -e
 arch="$(uname -m)"
-yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
 
 ERROR(){
     echo `date` - ERROR, $* | tee -a ${log_dir}/${builddate}.log

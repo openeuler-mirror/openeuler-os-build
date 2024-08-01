@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
 dogsheng_arch="$(uname -m)"
 
 ERROR(){
@@ -254,7 +254,7 @@ function make_raspi_image_inchroot()
     rootfs_dir=${workdir}/rootfs
     root_mnt=${workdir}/root
     boot_mnt=${workdir}/boot
-    euler_dir=${BUILD_SCRIPT_DIR}/config/raspi_image
+    euler_dir=/home/config/raspi_image
     CONFIG_RPM_LIST=${euler_dir}/rpmlist
 
     builddate=$(date +%Y%m%d)

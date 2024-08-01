@@ -28,7 +28,7 @@ function make_debug_everything_inchroot()
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
 
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
     if rpm -q oemaker &> /dev/null; then
        yum remove oemaker -y
@@ -44,7 +44,7 @@ function make_debug_everything_inchroot()
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t everything_debug -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${OBS_STANDARD_REPO_URL}"
+        bash -x oemaker -t everything_debug -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${STANDARD_PROJECT_REPO}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
@@ -68,10 +68,6 @@ function make_debug_everything_inchroot()
     fi
     create_checksum "${TGZ_NAME}"
 
-    #TIME_DIR="${PRE_VERSION}/${VERSION}/${version}-${TIME}"
-    #log_info "${HTTP_DIR}/${TIME_DIR}" > "${WORK_DIR}"releasedir_info
-    CUSTOM_DIR="${TIME_DIR}"
-    #RELEASE_DIR="${HTTP_DIR}/${CUSTOM_DIR}"
     RELEASE_DIR="${release_dir}/ISO/$ARCH"
     MOUNT_DIR="${release_dir}/debuginfo/$ARCH"
     SSH_CMD="mkdir -p ${RELEASE_DIR} ${MOUNT_DIR}"

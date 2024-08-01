@@ -11,13 +11,35 @@ function make_hmi_inchroot()
     local counter=0
     version="openeuler"
     RESULT_HMI="/usr1/mkeuleros/result_hmi"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     [ -d "${RESULT_HMI}" ] && rm -rf "${RESULT_HMI}/*"
     mkdir -p "${RESULT_HMI}"
+    
+    HMI_REPOS="${STANDARD_PROJECT_REPO}"
+    yum clean all -c ${yum_conf}
+    yum install -y qemu-img bc sudo parted dosfstools e2fsprogs xz -c ${yum_conf}
 
-    HMI_REPOS=$(echo "${OBS_STANDARD_REPO_URL}")
-    #HMI_REPOS=$(echo "${OBS_STANDARD_REPO_URL}" | sed 's/ / -r /g')
-    yum -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf clean all
-    yum install -y CreateImage sudo parted dosfstools e2fsprogs -c "${BUILD_SCRIPT_DIR}"/config/repo_conf/obs-repo.conf
+    rm -rf CreateImage
+    git clone https://gitee.com/openeuler/CreateImage.git
+    if [ $? -ne 0 ];then
+        echo "[ERROR] git clone CreateImage failed"
+        exit 1
+    fi
+    sed -i '/#disbale other repos/i \cp /etc/resolv.conf ${TARGET_ROOT}/etc/' CreateImage/hooks/root.d/01-create-root
+    sed -i '/most reliable/i \rm -f ${TARGET_ROOT}/etc/resolv.conf' CreateImage/hooks/root.d/01-create-root
+    sed -i '47a \cat ${repo_config}' CreateImage/hooks/root.d/01-create-root
+    
+    yumdownloader kernel -c ${yum_conf} 
+    kernel_version=$(rpm -qi kernel-* | grep Version | awk '{print $NF}')
+    if [[ "${kernel_version}" > "6.1.0" ]] || [[ "${kernel_version}" == "6.1.0" ]];then
+	    sed -i 's/nomodeset//g' CreateImage/hooks/finalise.d/50-bootloader
+    fi
+    rm -f kernel-*.rpm
+    rm -rf /usr/share/CreateImage && mkdir -p /usr/share/CreateImage
+    cp CreateImage/bin/* /usr/bin/
+    cp -a CreateImage/lib CreateImage/hooks CreateImage/config /usr/share/CreateImage
+    rm -rf CreateImage
+
     pushd "${RESULT_HMI}"
     set +e
     chmod 755 /usr/bin/create-image

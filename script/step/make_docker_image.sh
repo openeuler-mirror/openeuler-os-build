@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
 dogsheng_arch="$(uname -m)"
 function kiwi_init()
 {
@@ -88,13 +88,14 @@ function make_docker_image_inchroot()
 
     # build
     sed -i "s#IMAGE_NAME#${version_time}#" "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml
+    sed -i 's/container=.*>/container=\"'${CONTAINER_NAME}'\">/g'  "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml
 
     MOUNT_DIR=$(echo "${release_dir}" | cut -d '/' -f 5-9)
     mkdir -p /mnt/EulerOS
     TMPDIR=$(mktemp '/mnt/EulerOS/docker-XXXX')-$(date +%F-%T)
     mkdir -p "${TMPDIR}"
 
-    for repo_url in $(echo "${OBS_STANDARD_REPO_URL}" | xargs)
+    for repo_url in $(echo "${STANDARD_PROJECT_REPO}" | xargs)
     do
         sed -i "/obs_repo_here/a <repository type=\"rpm-md\"><source path=\"${repo_url}\" \/></repository>" "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml
     done

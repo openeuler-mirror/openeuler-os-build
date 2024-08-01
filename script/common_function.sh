@@ -85,53 +85,23 @@ function run_srcipt_all()
     done
 
 }
-#source "${BUILD_SCRIPT_DIR}"/setup_env.sh
-source "${BUILD_SCRIPT_DIR}"/make_tools/init.sh
-source "${BUILD_SCRIPT_DIR}"/make_tools/common.sh
-#source "${BUILD_SCRIPT_DIR}"/make_tools/container_tools.sh
-source "${BUILD_SCRIPT_DIR}"/make_tools/debug_tools.sh
-source "${BUILD_SCRIPT_DIR}"/make_tools/lib_storage_tools.sh ## x86
-source "${BUILD_SCRIPT_DIR}"/make_tools/docker_tools.sh
-#source "${BUILD_SCRIPT_DIR}"/make_tools/other_tool.sh
+
 source "${BUILD_SCRIPT_DIR}"/step/get_version.sh
 source "${BUILD_SCRIPT_DIR}"/step/release_dir.sh
-#source "${BUILD_SCRIPT_DIR}"/step/createrepo.sh
+source "${BUILD_SCRIPT_DIR}"/step/get_epol_rpms.sh
+source "${BUILD_SCRIPT_DIR}"/step/make_hmi.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_docker_image.sh
-if [ "$STEP" == "make_raspi_image" ];then
+if [[ ${STEP} == "make_raspi_image" ]];then
     source "${BUILD_SCRIPT_DIR}"/step/make_raspi_image.sh
-elif [ "$STEP" == "make_riscv64_qemu_image" ];then
+elif [[ ${STEP} == "make_riscv64_qemu_image" ]];then
     source "${BUILD_SCRIPT_DIR}"/step/make_riscv64_qemu_image.sh
-else
+elif [[ ${STEP} == "make_microvm_image" ]];then
     source "${BUILD_SCRIPT_DIR}"/step/make_microvm_image.sh
 fi
-source "${BUILD_SCRIPT_DIR}"/step/make_gcov.sh
-source "${BUILD_SCRIPT_DIR}"/step/merge_release_html.sh
-#source "${BUILD_SCRIPT_DIR}"/step/build_and_wait.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso.sh
-source "${BUILD_SCRIPT_DIR}"/step/get_epol_rpms.sh
-source "${BUILD_SCRIPT_DIR}"/step/make_iso_debug.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_netinst_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_edge_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_desktop_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_debug_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everysrc.sh
-source "${BUILD_SCRIPT_DIR}"/step/make_tar.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_compile_env.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_compile_env_cross.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_livecd.sh
-source "${BUILD_SCRIPT_DIR}"/step/make_images_slim.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_euleros_certdb.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_compile_tools.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_upgrade_patch.sh
-source "${BUILD_SCRIPT_DIR}"/step/make_hmi.sh
-#source "${BUILD_SCRIPT_DIR}"/step/push_lts_dir.sh
-### common
-source "${BUILD_SCRIPT_DIR}"/step/merge_release_html.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_upload_cmc_image.sh
-#source "${BUILD_SCRIPT_DIR}"/step/upload_to_cmc.sh
-source "${BUILD_SCRIPT_DIR}"/step/update_release_info.sh
-#source "${BUILD_SCRIPT_DIR}"/step/make_cmc_file.sh
-### arm
-source "${BUILD_SCRIPT_DIR}"/step/make_vm_qcow2.sh
-source "${BUILD_SCRIPT_DIR}"/step/mkdliso_hyperstackos.sh

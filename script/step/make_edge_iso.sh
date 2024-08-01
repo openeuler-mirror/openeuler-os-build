@@ -26,7 +26,7 @@ function make_edge_iso_inchroot()
     TIME_DIR="${release_dir#${HTTP_DIR}}"
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
     if rpm -q oemaker &> /dev/null; then
         yum remove oemaker -y
@@ -36,7 +36,7 @@ function make_edge_iso_inchroot()
     fi
     yum install oemaker lorax linux-firmware -y -c "${yum_conf}"
     cd /opt/oemaker
-    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_EPOL_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
+    REPOS=`echo "${STANDARD_PROJECT_REPO} ${EPOL_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     set +u
@@ -63,7 +63,6 @@ function make_edge_iso_inchroot()
     TGZ_NAME=$(ls *"${ARCH}"-dvd.iso)
     if [ x"${TGZ_NAME}" == x'' ]; then  log_error "can not find iso";fi
     create_checksum "${TGZ_NAME}"
-    #log_info "${HTTP_DIR}/${TIME_DIR}" > "${WORK_DIR}"releasedir_info
     iso_rpmlist="${OS_NAME}-${OS_VERSION}-edge-${ARCH}.rpmlist"
     mkdir temp && mount *"${ARCH}"-dvd.iso temp
     cd temp/Packages
@@ -71,7 +70,6 @@ function make_edge_iso_inchroot()
     cd ../..
     umount temp
     [ -n temp ] && rm -rf temp
-    CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/edge_img/$ARCH"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"
