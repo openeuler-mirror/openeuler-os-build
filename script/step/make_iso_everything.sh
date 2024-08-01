@@ -28,7 +28,7 @@ function make_iso_everything_inchroot()
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
 
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
 
     yum install python3 -y -c "${yum_conf}"
@@ -47,9 +47,10 @@ function make_iso_everything_inchroot()
     rpmsnames=`cat ${UNABLE_INSTALL_LIST}`
     for rpmsname in $rpmsnames
     do
+        sed -i "/>${rpmname}<\/packagereq>/d" config/rpmlist.xml
         sed -i '/<packagelist type="exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
-    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
+    REPOS=`echo "${STANDARD_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     while [ "${num}" -lt 3 ]
@@ -78,10 +79,6 @@ function make_iso_everything_inchroot()
     fi
     create_checksum "${TGZ_NAME}"
 
-    #TIME_DIR="${PRE_VERSION}/${VERSION}/${version}-${TIME}"
-    #log_info "${HTTP_DIR}/${TIME_DIR}" > "${WORK_DIR}"releasedir_info
-    CUSTOM_DIR="${TIME_DIR}"
-    #RELEASE_DIR="${HTTP_DIR}/${CUSTOM_DIR}"
     RELEASE_DIR="${release_dir}/ISO/$ARCH"
     MOUNT_DIR="${release_dir}/everything/$ARCH"
     SSH_CMD="mkdir -p ${RELEASE_DIR} ${MOUNT_DIR}"

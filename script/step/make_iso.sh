@@ -26,7 +26,7 @@ function make_iso_inchroot()
     TIME_DIR="${release_dir#${HTTP_DIR}}"
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
     if rpm -q oemaker &> /dev/null; then
         yum remove oemaker -y
@@ -36,7 +36,7 @@ function make_iso_inchroot()
     fi
     yum install oemaker lorax -y -c "${yum_conf}"
     cd /opt/oemaker
-    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
+    REPOS=`echo "${STANDARD_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     set +u
@@ -63,20 +63,29 @@ function make_iso_inchroot()
     TGZ_NAME=$(ls *"${ARCH}"-dvd.iso)
     if [ x"${TGZ_NAME}" == x'' ]; then  log_error "can not find iso";fi
     create_checksum "${TGZ_NAME}"
-    #log_info "${HTTP_DIR}/${TIME_DIR}" > "${WORK_DIR}"releasedir_info
     iso_rpmlist="${OS_NAME}-${OS_VERSION}-${ARCH}.rpmlist"
+    iso_srclist="baseos_bin_2_src.csv"
     mkdir temp && mount *"${ARCH}"-dvd.iso temp
     cd temp/Packages
     ls *.rpm > "../../${iso_rpmlist}"
+    echo "bin,src,version,repo" > "../../${iso_srclist}"
+    for p in $(cat "../../${iso_rpmlist}")
+    do
+	    bin=$(echo ${p%-*-*})
+	    src_rpm=$(rpm -qi $p | grep "Source RPM" | awk '{print $NF}')
+	    src=$(echo ${src_rpm%-*-*})
+	    tmp_version=$(rpm -q $p --queryformat %{VERSION}-%{RELEASE})
+	    version=$(echo ${tmp_version%.oe*})
+	    echo "${bin},${src},${version},baseos" >> "../../${iso_srclist}"
+    done
     cd ../..
     umount temp
     [ -n temp ] && rm -rf temp
-    CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/ISO/$ARCH"
     MOUNT_DIR="${release_dir}/OS/$ARCH"
     SSH_CMD="mkdir -p ${RELEASE_DIR} ${MOUNT_DIR}"
     sshcmd "${SSH_CMD}"
-    sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM} ${iso_rpmlist}" "${RELEASE_DIR}"
+    sshscp "${TGZ_NAME} ${TGZ_NAME}${SHA256SUM} ${iso_rpmlist} ${iso_srclist}" "${RELEASE_DIR}"
     set +e
     ret=$(get_repose ssh -i ~/.ssh/super_publish_rsa ${SSHPORT} root@${RELEASE_SERVER_IP} mount | grep ${RELEASE_VERSION_DIR} | grep OS/${ARCH} | grep -v test | awk '{print $3}')
     for mp in $ret

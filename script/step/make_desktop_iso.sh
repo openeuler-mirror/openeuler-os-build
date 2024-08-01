@@ -26,7 +26,7 @@ function make_desktop_iso_inchroot()
     TIME_DIR="${release_dir#${HTTP_DIR}}"
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
-    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/obs-repo.conf"
+    yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
     if rpm -q oemaker &> /dev/null; then
         yum remove oemaker -y
@@ -36,7 +36,7 @@ function make_desktop_iso_inchroot()
     fi
     yum install oemaker lorax -y -c "${yum_conf}"
     cd /opt/oemaker
-    REPOS=`echo "${OBS_STANDARD_REPO_URL} ${OBS_EPOL_REPO_URL} ${OBS_STANDARD_THIRD_REPO_URL}" | sed 's/[ \t]*$//g'`
+    REPOS=`echo "${STANDARD_PROJECT_REPO} ${EPOL_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
     set +e
     num=0
     set +u
@@ -70,7 +70,6 @@ function make_desktop_iso_inchroot()
     cd ../..
     umount temp
     [ -n temp ] && rm -rf temp
-    CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/workstation/$ARCH"
     SSH_CMD="mkdir -p ${RELEASE_DIR}"
     sshcmd "${SSH_CMD}"

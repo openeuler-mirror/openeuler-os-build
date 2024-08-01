@@ -1,34 +1,30 @@
 #!/bin/bash
 set -e
 
-if echo "${BUILD_SCRIPT_DIR}" | grep 'gcov-'; then
-    export CI_PROJECT="openeuler_${ARCH}_gcov"
-else
-    export CI_PROJECT="openeuler_${ARCH}"
+if [[ ${ARCH} == "aarch64" ]];then
+	arch_name="ARM64"
+elif [[ ${ARCH} == "x86_64" ]];then
+	arch_name="X86"
+elif [[ ${ARCH} == "loongarch64" ]];then
+	arch_name="LOONGARCH64"
+elif [[ ${ARCH} == "riscv64" ]];then
+	arch_name="RISCV64"
+elif [[ ${ARCH} == "ppc64le" ]];then
+	arch_name="PPC64LE"
 fi
 
-if [ "x${arm2x86}" = "xx86_64" ]; then
-        export CI_PROJECT=$(echo "$CI_PROJECT" |sed 's/x86_64/aarch64/')
+if echo "${BUILD_SCRIPT_DIR}" | grep 'gcov-'; then
+    export CI_PROJECT="openeuler_${arch_name}_gcov"
+else
+    export CI_PROJECT="openeuler_${arch_name}"
 fi
-export CI_PROJECT=$(echo "$CI_PROJECT" |sed 's/x86_64/X86/')
-export CI_PROJECT=$(echo "$CI_PROJECT" |sed 's/aarch64/ARM64/')
 
 export WORK_DIR="${OUTPUT_PATH}/work_dir/${CI_PROJECT}/"
 
-#configure for release to remote
-set +ue
-export RELEASE_ROOT_PATH=${RELEASE_ROOT_PATH}
-if [ "x${jenkins_build}" != "x" ]; then
-    export USER=""
-    export PASSWD=""
-    export HTTP_DIR=${RELEASE_ROOT_PATH}
-    export PRE_VERSION=${RELEASE_VERSION_DIR}
-else
-    export IP="127.0.0.1"
-    export HTTP_DIR="${OUTPUT_PATH}/release"
-    export PRE_VERSION="openeuler/${MYVERSION}"
-fi
-set -ue
+export USER=""
+export PASSWD=""
+export HTTP_DIR=${RELEASE_ROOT_PATH}
+export PRE_VERSION=${RELEASE_VERSION_DIR}
 
 export VERSION="${CI_PROJECT}"
 export CMC_BASEDIR="/usr1"

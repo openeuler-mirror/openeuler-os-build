@@ -3,6 +3,24 @@
 # Copyright Huawei Technologies Co., Ltd. 2010-2018. All rights reserved.
 set -e
 
+function check_rpm_sign()
+{
+    > /tmp/not_sign_rpm
+    for pkg in `ls $1/Packages/*.rpm`
+    do
+	    rpm -Kv ${pkg} | grep "key ID [a-z0-9]*: OK" > /dev/null
+	    if [[ $? -ne 0 ]];then
+		echo "${pkg}" >>  /tmp/not_sign_rpm
+	    fi
+    done
+    if [[ -s "/tmp/not_sign_rpm" ]];then
+	    echo "[Error]: some rpm is not sign"
+	    cat /tmp/not_sign_rpm
+	    exit 1
+    fi
+    rm -f /tmp/not_sign_rpm
+}
+
 ######################
 # 构建iso镜像
 # Globals:
@@ -13,100 +31,7 @@ function get_epol_rpms()
 {
     chroot_run "cd /home; bash make_version.sh get_epol_rpms_inchroot"
 }
-######################
-# get excluded packages binary rpms
-# Globals:
-# Arguments:
-# Returns:
-######################
-function get_excluded_pkg_rpm()
-{
-    obs_project="${OBS_EPOL_PROJECT}"
-    osc prjresults ${obs_project} --csv 2>/dev/null | grep "excluded" > excluded_lst
-    > aarch64_epol_excluded_lst
-    > x86_64_epol_excluded_lst
-    excluded_msgs=`cat excluded_lst`
-    for excluded_msg in ${excluded_msgs}
-    do
-	    pkg_name=$(echo $excluded_msg | awk -F";" '{print $1}')
-	    a_status=$(echo $excluded_msg | awk -F";" '{print $2}')
-	    x_status=$(echo $excluded_msg | awk -F";" '{print $3}')
-	    if [[ ${a_status} == "excluded" ]];then
-		    arch="x86_64"
-	    elif [[ ${x_status} == "excluded" ]];then
-		    arch="aarch64"
-	    else
-		    log_warning "${pkg_name} not excluded"
-		    continue
-	    fi
-	    rpmlist=$(osc ls -b ${obs_project} ${pkg_name} standard_${arch} ${arch} 2>/dev/null | grep "\.src.rpm")
-	    if [[ ${rpmlist} != "" ]];then
-		    for rpm_name in ${rpmlist[@]}
-		    do
-			    tmp=${rpm_name%.*.rpm*}
-			    echo $tmp >> ${arch}_epol_excluded_lst
-		    done
-	    fi
-    done
-    rm -rf excluded_lst
-}
-######################
-# wait project build stable
-# Globals:
-# Arguments:
-# Returns:
-######################
-function wait_project_published()
-{
-    set +e
-    waitime=3600
-    obs_project="${OBS_EPOL_PROJECT}"
-    while [ $waitime -gt 0 ]
-    do
-        osc prjresults ${obs_project} --csv 2>/dev/null | grep "aarch64/published" | grep "x86_64/published"
-        if [ $? -eq 0 ];then
-		log_info "${obs_project} is published"
-		break
-        fi
-        let waitime=$waitime-5
-        sleep 5
-    done
-    if [ $waitime -eq 0 ];then
-	    log_error "get_epol_rpms fail"
-    fi
-    get_excluded_pkg_rpm
-    temp_dir="/tmp/compare_list_dir"
-    rm -rf ${temp_dir} && mkdir -p ${temp_dir}
-    mv /etc/yum.repos.d /etc/yum.repos.d.bak 
-    archs="aarch64 x86_64"
-    for arch in $archs
-    do
-	    rm -rf /etc/yum.repos.d/*
-	    yum-config-manager --add-repo "${OBS_EPOL_REPO_URL%/*}/standard_${arch}"
-	    yum clean all
-	    yum list --installroot="${temp_dir}" --available | awk '{print $1,$2}' | grep "\.src" > ${arch}_epol_lst
-	    sed -i -e 's/\.src /-/' ${arch}_epol_lst
-	    sort -u ${arch}_epol_lst -o ${arch}_epol_lst
-	    excluded_rpms=`cat ${arch}_epol_excluded_lst`
-	    for excluded_rpm in ${excluded_rpms}
-	    do
-		    sed -i "/^${excluded_rpm}/d" ${arch}_epol_lst
-	    done
-	    rm -rf ${arch}_epol_excluded_lst "${temp_dir}/var"
-    done
-    rm -rf ${temp_dir}
-    rm -rf /etc/yum.repos.d
-    mv /etc/yum.repos.d.bak /etc/yum.repos.d
-    diff -Nur aarch64_epol_lst x86_64_epol_lst
-    if [ $? -eq 0 ];then
-	    rm -rf aarch64_epol_lst x86_64_epol_lst
-	    log_info "obs repo two architecture rpms version or release are same"
-    else
-	    rm -rf aarch64_epol_lst x86_64_epol_lst
-	    log_error "obs repo two architecture rpms version or release are not same"
-    fi
-    set -e
-}
+
 ######################
 # 在chroot中构建iso镜像
 # Globals:
@@ -122,18 +47,15 @@ function get_epol_rpms_inchroot()
     TIME=${TIME#"${version}"-}
     CUSTOM_DIR="${TIME_DIR}"
     RELEASE_DIR="${release_dir}/EPOL"
+
     set +e
     mv /etc/yum.repos.d /etc/yum.repos.d.bak
     mkdir -p /etc/yum.repos.d /tmp/EPOL/${ARCH}/Packages "/tmp/EPOL/source/Packages"
-    if [ -n "${OBS_BRINGINRELY_URL}" ];then
-        bringinrely_repo="--add-repo ${OBS_BRINGINRELY_URL}"
-    else
-        bringinrely_repo=""
-    fi
-    # main standard
-    yum-config-manager --add-repo "${OBS_EPOL_REPO_URL}" ${bringinrely_repo}
+    rpm --import /home/RPM-GPG-KEY-EBS
+
+    yum-config-manager --add-repo ${EPOL_PROJECT_REPO}
     yum clean all
-    SSH_CMD="mkdir -p ${RELEASE_DIR}/main"
+    SSH_CMD="rm -rf ${RELEASE_DIR};mkdir -p ${RELEASE_DIR}/main"
     sshcmd "${SSH_CMD}"
     tmp_dir="/tmp/EPOL/main/${ARCH}"
     mkdir -p ${tmp_dir}/Packages
@@ -141,15 +63,20 @@ function get_epol_rpms_inchroot()
     unrpms=`cat ${UNABLE_INSTALL_LIST}`
     for unrpm in ${unrpms}
     do
-	    sed -i "/^${unrpm}\./d" ava_epol_lst
+        sed -i "/^${unrpm}\./d" ava_epol_lst
     done
+    if [ ! -s ava_epol_lst ];then
+        echo "There don't have some rpms in the repo"
+        exit 1
+    fi
     yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
     rm -rf ${tmp_dir}/Packages/var
+    check_rpm_sign ${tmp_dir}
     createrepo -d ${tmp_dir}
     sshscp "${tmp_dir}" "${RELEASE_DIR}/main/"
     if [[ "$ARCH" == "aarch64" ]];then
         rm -rf /etc/yum.repos.d/*
-        yum-config-manager --add-repo "${OBS_EPOL_REPO_URL%/*}/standard_aarch64" --add-repo "${OBS_EPOL_REPO_URL%/*}/standard_x86_64"
+        yum-config-manager --add-repo "${EPOL_PROJECT_REPO%/*}/aarch64" --add-repo "${EPOL_PROJECT_REPO%/*}/x86_64"
         yum clean all
         tmp_source="/tmp/EPOL/main/source"
         mkdir -p ${tmp_source}/Packages
@@ -157,10 +84,15 @@ function get_epol_rpms_inchroot()
         unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}`
         for unrpm in ${unrpms}
         do
-		sed -i "/^${unrpm}\./d" ava_epol_lst
+            sed -i "/^${unrpm}\./d" ava_epol_lst
         done
+        if [ ! -s ava_epol_lst ];then
+            echo "There don't have some rpms in the repo"
+            exit 1
+        fi
         yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
         rm -rf ${tmp_source}/Packages/var
+        check_rpm_sign ${tmp_source}
         createrepo -d ${tmp_source}
         sshscp "${tmp_source}" "${RELEASE_DIR}/main/"
         SSH_CMD="mkdir -p ${RELEASE_DIR}/update/main/source/Packages && createrepo -d ${RELEASE_DIR}/update/main/source"
@@ -169,25 +101,59 @@ function get_epol_rpms_inchroot()
         sshcmd "${SSH_CMD}"
     fi
     # multi version
-    if [[ ${OBS_EPOL_MULTI_VERSION_LIST} != "" ]];then
-        for r in ${OBS_EPOL_MULTI_VERSION_LIST}
+    if [[ ${EPOL_MULTI_VERSION_LIST} != "" ]];then
+        for r in ${EPOL_MULTI_VERSION_LIST}
         do
-            SUB_EPOL_MULTI_REPO_URL="$(echo ${r//:/:\/})"
             TMP=`echo ${r%:*}`
             PKG=`echo ${TMP##*:}`
             VER=`echo ${r##*:}`
             tmp_dir="/tmp/EPOL/multi_version/${PKG}/${VER}/${ARCH}"
             mkdir -p ${tmp_dir}/Packages
-            repo_url="http://${OBS_SERVER_IP}:82/${SUB_EPOL_MULTI_REPO_URL}/standard_${ARCH}"
+            if [[ "${VER}" == "Train" ]];then
+                repo_name="${Train_repo}"
+            fi
+            if [[ "${VER}" == "Wallaby" ]];then
+                repo_name="${Wallaby_repo}"
+            fi
+            if [[ "${VER}" == "Antelope" ]];then
+                repo_name="${Antelope_repo}"
+            fi
+            if [[ "${VER}" == "humble" ]];then
+                repo_name="${humble_repo}"
+            fi
+            if [[ "${VER}" == "noetic" ]];then
+                repo_name="${noetic_repo}"
+            fi
+            if [[ "${VER}" == "For-Virt" ]];then
+                repo_name="${nestos_for_virt_repo}"
+            fi
+            if [[ "${VER}" == "For-Container" ]];then
+                repo_name="${nestos_for_container_repo}"
+            fi
+            if [[ "${PKG}" == "kubernetes" ]];then
+                repo_name="${kubernetes_repo}"
+            fi
+            if [[ "${PKG}" == "lustre" ]];then
+                repo_name="${lustre_repo}"
+            fi
+            repo_url="${repo_name}/${ARCH}"
             rm -rf /etc/yum.repos.d/*
             yum-config-manager --add-repo ${repo_url}
             yum clean all
             yum list --installroot="${tmp_dir}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v "\.src" > ava_epol_lst
-            unrpms=`cat ${UNABLE_INSTALL_LIST}_${VER}`
+            if [[ "${PKG}" == "kubernetes" ]] || [[ "${PKG}" == "lustre" ]];then
+                unrpms=`cat ${UNABLE_INSTALL_LIST}_${PKG}`
+            else
+                unrpms=`cat ${UNABLE_INSTALL_LIST}_${VER}`
+            fi
             for unrpm in ${unrpms}
             do
                 sed -i "/^${unrpm}\./d" ava_epol_lst
             done
+            if [ ! -s ava_epol_lst ];then
+                echo "[Warning]: ${repo_url} don't have rpm."
+                continue
+            fi
             yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
             rm -rf ${tmp_dir}/Packages/var
             createrepo -d ${tmp_dir}
@@ -197,9 +163,14 @@ function get_epol_rpms_inchroot()
             if [[ "${ARCH}" == "aarch64" ]];then
                 tmp_source="/tmp/EPOL/multi_version/${PKG}/${VER}/source"
                 mkdir -p ${tmp_source}/Packages
-                yum-config-manager --add-repo "http://${OBS_SERVER_IP}:82/${SUB_EPOL_MULTI_REPO_URL}/standard_x86_64"
-                yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep "\.src" > ava_epol_lst
-                unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}_${VER}`
+                yum-config-manager --add-repo "${repo_name}/x86_64"
+                yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep -E "noarch|${ARCH}" | grep -v "\.src" > ava_epol_lst
+
+                if [[ "${PKG}" == "kubernetes" ]] || [[ "${PKG}" == "lustre" ]];then
+                    unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}_${PKG}`
+                else
+                    unrpms=`cat ${UNABLE_INSTALL_SOURCE_LIST}_${VER}`
+                fi
                 for unrpm in ${unrpms}
                 do
                     sed -i "/^${unrpm}\./d" ava_epol_lst

@@ -16,7 +16,6 @@ if [ ! -d "${OUTPUT_PATH}"  ]; then
     mkdir -p "${OUTPUT_PATH}" 
 fi
 
-
 if [ "${ISCI}" = "1" ]; then
     STARTTIME=$(perl -e 'print time()')
     exec 1> >(exec -a 'build logging' perl -e '$|=1;select(F);$|=1;while(<STDIN>){my $p=sprintf("[%5ds] ", time()-'"${STARTTIME}"');print STDOUT $p.$_;}') 2>&1
@@ -27,17 +26,8 @@ source "${BUILD_SCRIPT_DIR}"/internal.sh || exit 1
 source "${BUILD_SCRIPT_DIR}"/tools/util.sh || exit 1
 source "${BUILD_SCRIPT_DIR}"/tools/common.sh || exit 1
 source "${BUILD_SCRIPT_DIR}"/tools/chroot.sh || exit 1
-#source "${BUILD_SCRIPT_DIR}"/tools/obs.sh || exit 1
-
-#sh "${BUILD_SCRIPT_DIR}"/tools/safe_sshcmd.sh -c "ip add | grep 172 | awk -F '/' '{print \$1}'| awk '{print \$2}'" -m ${RELEASE_SERVER_IP} -u "root" -p "xxxx" -t 120 -n 3
-#if echo "${CI_PROJECT}" | grep '_gcov'; then
-#    modify_for_gcov "${BUILD_SCRIPT_DIR}"
-#    source "${BUILD_SCRIPT_DIR}"/config.sh || exit 1
-#fi
 source "${BUILD_SCRIPT_DIR}"/common_function.sh || exit 1
 export EXCLUDE_REGISTER_SCRIPT=('set_release_dir')
-
-sed -i 's/container=.*>/container=\"'${CONTAINER_NAME}'\">/g'  "${BUILD_SCRIPT_DIR}"/config/docker_image/config.xml
 
 ######################
 # 使用说明
@@ -50,10 +40,8 @@ function usage()
     echo "$(basename $0) [script_name|all]"
 }
 
-export ALL_SCRIPT=('build_and_wait' 'update_release_info' 'make_tar' 'make_hmi' 'make_iso' 'make_iso_debug' 'make_iso_singleoss' 'make_livecd' 'make_compile_env' 'make_docker_image' 'make_raspi_image' 'make_riscv64_qemu_image' 'make_microvm_image' 'make_euleros_certdb' 'make_tools_lib_storage' 'make_container_tools' 'make_tools_debug_tools' 'make_upgrade_patch' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'push_lts_dir' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso')
+export ALL_SCRIPT=('make_hmi' 'make_iso' 'make_docker_image' 'make_raspi_image' 'make_riscv64_qemu_image' 'make_microvm_image' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso' 'make_riscv64_image')
 [[ "${DEBUG}" -eq 1 ]] && set -x
-
-#check_env
 
 arg1="$1"
 shift
