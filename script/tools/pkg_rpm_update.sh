@@ -58,6 +58,64 @@ function update_json_file(){
 	fi
 }
 
+# search package commits
+function search_pkg_commits(){
+	local project=$1
+	local pkg_name=$2
+	local update_key=$3
+	local update_path=$4
+	local branch_name=$5
+	local action=$6
+
+	commit_file="${branch_name}-package-commit.txt"
+	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
+if [ ! -f "${update_path}/${commit_file}" ];then
+	touch ${update_path}/${commit_file}
+fi
+"
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/${commit_file} ./
+	if [ ! -f ${commit_file} ];then
+		touch ${commit_file}
+	fi
+
+	if [[ ${action} == "delete" ]];then
+		for pkg in ${pkg_name[@]}
+		do
+			if [[ ${pkg} =~ ":" ]];then
+				sed -i "/^${pkg##*:}:/d" ${commit_file}
+			else
+				sed -i "/^${pkg}:/d" ${commit_file}
+			fi
+		done
+	elif [[ ${action} == "create" ]];then
+		snapshot_id=$(ccb select builds build_type=full,incremental,specified status=201,202 os_project=${project} --sort create_time:desc --size 1 -f snapshot_id | jq -r '.[0]._source.snapshot_id')
+		if [ "x${snapshot_id}" == "x" ];then
+			echo "ccb get snapshot_id failed"
+			exit 1
+		fi
+		spec_commits=$(ccb select snapshots _id=${snapshot_id} -f spec_commits)
+		rm -f pkglist
+		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist ./
+		latest_pkg=$(cat pkglist)
+		for pkg in ${pkg_name[@]}
+		do
+			if [[ ${pkg} =~ ":" ]];then
+				local pkg=${pkg##*:}
+			fi
+			if [[ ${latest_pkg[@]} =~ ${pkg} ]];then
+				commit_id=$(echo ${spec_commits} | jq -r ".[0]._source.spec_commits[\"${pkg}\"].commit_id")
+				if [ -z "${commit_id}" ];then
+					echo "${pkg} commit_id not find"
+				fi
+				sed -i "/^${pkg}:/d" ${commit_file}
+				echo "${pkg}:${commit_id}" >> ${commit_file}
+			fi
+		done
+	fi
+	scp -i ${update_key} -o StrictHostKeyChecking=no ${commit_file} root@${update_ip}:${update_path}/${commit_file}
+}
+
+
 # Create UPDATE directory and add package binaries
 function copy_rpm(){
 	local obs_proj=$1
@@ -151,7 +209,11 @@ fi
 				rm -rf binaries 2>/dev/null
 			done
 		fi
-		echo ${pkg} >> pkglist_bak
+		if [[ ${pkg} =~ ":" ]];then
+			echo ${pkg##*:} >> pkglist_bak
+		else
+			echo ${pkg} >> pkglist_bak
+		fi
 	done
 	rm -f pkglist 2>/dev/null
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
@@ -185,6 +247,7 @@ fi
 	check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "create"
 	remove_published_rpm ${obs_proj} ${pkglist} ${publish_path} ${update_path} ${update_key} ${pkg_place}
 	pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "update"
+	search_pkg_commits ${obs_proj} "${pkgs}" ${update_key} ${update_path} ${branch_name} "create"
 }
 
 # Remove published rpms in update_xxx
@@ -241,7 +304,11 @@ function remove_published_rpm(){
 							echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/source"
 							ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/source/Packages/${pkg_rpm}"
 							src_flag=1
-							sed -i "/^${pkg}$/d" pkglist
+							if [[ ${pkg} =~ ":" ]];then
+								sed -i "/^${pkg##*:}$/d" pkglist
+							else
+								sed -i "/^${pkg}$/d" pkglist
+							fi
 						fi
 					fi
 					if [[ "${rpmlist[@]}" =~ "${pkg_rpm}" ]];then
@@ -249,6 +316,11 @@ function remove_published_rpm(){
 						ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/${ar}/Packages/${pkg_rpm}"
 						arch_flag=1
 						sed -i "/^${pkg}$/d" pkglist
+						if [[ ${pkg} =~ ":" ]];then
+							sed -i "/^${pkg##*:}$/d" pkglist
+						else
+							sed -i "/^${pkg}$/d" pkglist
+						fi
 					fi
 				done
 			fi
@@ -510,8 +582,8 @@ function pkg_rpm_csv(){
 	for pkg in ${pkgs}
 	do
 		rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist | sort | uniq)
-		if [[ ${pkg} == "kernel:kernel" ]];then
-			local pkg="kernel"
+		if [[ ${pkg} =~ ":" ]];then
+			local pkg=${pkg##*:}
 		fi
 		sed -i "/${pkg},/d" ${csv_file}
 		if [[ ${action} == "update" ]];then
@@ -624,12 +696,17 @@ function del_pkg_rpm(){
 		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 		for pkg in ${pkgs}
 		do
-			sed -i "/^$pkg$/d" pkglist
+			if [[ ${pkg} =~ ":" ]];then
+				sed -i "/^${pkg##*:}$/d" pkglist
+			else
+				sed -i "/^${pkg}$/d" pkglist
+			fi
 		done	
 		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
 		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
 		check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "delete"
 		pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "delete"
+		search_pkg_commits ${obs_proj} "${pkgs}" ${update_key} ${update_path} ${branch_name} ${flag}
 	fi
 }
 
