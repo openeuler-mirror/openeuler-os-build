@@ -88,12 +88,11 @@ fi
 			fi
 		done
 	elif [[ ${action} == "create" ]];then
-		snapshot_id=$(ccb select builds build_type=full,incremental,specified status=201,202 os_project=${project} --sort create_time:desc --size 1 -f snapshot_id | jq -r '.[0]._source.snapshot_id')
-		if [ "x${snapshot_id}" == "x" ];then
-			echo "ccb get snapshot_id failed"
+		snapshot_id_list=$(ccb select builds os_project=${project} build_type=full,incremental,specified status=201,202 published_status=4 --sort create_time:desc --size 10 -f snapshot_id | jq -r '.[]._source.snapshot_id' | awk '!a[$0]++')
+		if [ "x${snapshot_id_list}" == "x" ];then
+			echo "Failed to ccb get the last 10 snapshot_id"
 			exit 1
 		fi
-		spec_commits=$(ccb select snapshots _id=${snapshot_id} -f spec_commits)
 		rm -f pkglist
 		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist ./
 		latest_pkg=$(cat pkglist)
@@ -103,14 +102,22 @@ fi
 				local pkg=${pkg##*:}
 			fi
 			if [[ ${latest_pkg[@]} =~ ${pkg} ]];then
-				commit_id=$(echo ${spec_commits} | jq -r ".[0]._source.spec_commits[\"${pkg}\"].commit_id")
-				if [ -z "${commit_id}" ];then
-					echo "${pkg} commit_id not find"
-				fi
+				for snapshot_id in ${snapshot_id_list[@]}
+				do
+					commit_id=$(ccb select snapshots _id=${snapshot_id} -f spec_commits | jq -r ".[0]._source.spec_commits[\"${pkg}\"].commit_id")
+					if [[ ${commit_id} != "null" ]];then
+						break
+					fi
+				done
 				sed -i "/^${pkg}:/d" ${commit_file}
-				echo "${pkg}:${commit_id}" >> ${commit_file}
+				if [[ ${commit_id} == "null" ]];then
+					echo "${pkg}:" >> ${commit_file}
+				else
+					echo "${pkg}:${commit_id}" >> ${commit_file}
+				fi
 			fi
 		done
+		rm -f pkglist
 	fi
 	scp -i ${update_key} -o StrictHostKeyChecking=no ${commit_file} root@${update_ip}:${update_path}/${commit_file}
 }
