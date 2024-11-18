@@ -172,6 +172,8 @@ if [ ! -d ${update_path} ];then
 	touch pkglist
 fi
 "
+	rm -f pkglist
+	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 	pkgs=${pkglist//,/ }
 	arch=(aarch64 x86_64)
 	for p in ${ebs_proj_list[@]}
@@ -217,17 +219,14 @@ fi
 			done
 		fi
 		if [[ ${pkg} =~ ":" ]];then
-			echo ${pkg##*:} >> pkglist_bak
+			echo ${pkg##*:} >> pkglist
 		else
-			echo ${pkg} >> pkglist_bak
+			echo ${pkg} >> pkglist
 		fi
 	done
-	rm -f pkglist 2>/dev/null
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
-	cat pkglist_bak >> pkglist
-	cat pkglist | sort | uniq > pkglist_bak
-	mv pkglist_bak pkglist
+	sort -u pkglist -o pkglist
 	scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+	rm -f pkglist
 	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
 	if [[ $? -eq 0 ]];then
 		if [[ ${action} == "update" ]];then
@@ -269,6 +268,7 @@ function remove_published_rpm(){
 	unset source_rpmlist
 	pkgs=${pkglist//,/ }
 	echo "[INFO]: Start delete published rpm from ${update_path}"
+	rm -f pkglist
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
 	echo "${publish_path[@]}"
 	if [[ "${pkg_place}" == "standard" ]];then
@@ -340,6 +340,7 @@ function remove_published_rpm(){
 		fi
 	done
 	scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+	rm -f pkglist
 	echo "[INFO]: Finish delete published rpm from ${update_path}"
 }
 
@@ -580,6 +581,11 @@ function pkg_rpm_csv(){
 	action=$6
 	pkgs=${pkglist//,/ }
 	csv_file="${branch}.csv"
+	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
+if [ ! -f ${update_path}/${csv_file} ];then
+	touch ${update_path}/${csv_file}
+fi
+"
 	rm -f ${csv_file}
 	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/${csv_file} .
 	if [ ! -f "${csv_file}" ];then
