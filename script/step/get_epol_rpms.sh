@@ -101,6 +101,8 @@ function get_epol_rpms_inchroot()
         sshcmd "${SSH_CMD}"
     fi
     # multi version
+    SSH_CMD="mkdir -p ${RELEASE_DIR}/multi_version"
+    sshcmd "${SSH_CMD}"
     if [[ ${EPOL_MULTI_VERSION_LIST} != "" ]];then
         for r in ${EPOL_MULTI_VERSION_LIST}
         do
