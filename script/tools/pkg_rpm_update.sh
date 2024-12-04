@@ -4,102 +4,153 @@
 # Copyright Huawei Technologies Co., Ltd. 2010-2018. All rights reserved.
 # Decription: Create an UPDATE directory to add, delete, update, check and publish package binaries
 # Function introduction and use method:
-# 1. copy_rpm: create UPDATE directory and add the binaries of the package
-#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "create" <standard/EPOL> [UPDATE_DIR]
-#    Attention: In this function, if the UPDATE_DIR parameter is null, the default value is ""update_"`date +%Y%m%d`"
-# 2. del_pkg_rpm: delete the binaries of package in the UPDATE directory
-#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "del_pkg_rpm" <UPDATE_DIR> <standard/EPOL>
-# 3. update_rpm: update the binaries of package in the UPDATE directory
-#    Usage: bash pkg_rpm_update.sh <obs_project> <pkgnamelist> <machine_key> "update" <UPDATE_DIR> <standard/EPOL>
-# 4. del_update_dir: delete UPDATE directory
-#    Usage: bash pkg_rpm_update.sh <obs_project> <UPDATE_DIR> <machine_key> "del_update_dir" <standard/EPOL>
-# 5. release_rpm: publish the binaries of all packages in the UPDATE directory to the official website
-#    Usage: bash pkg_rpm_update.sh <obs_project> <UPDATE_DIR> <machine_key> "release" <standard/EPOL>
+# 1. copy_rpm: create update directory and add binary rpm of package
+#    Usage: bash pkg_rpm_update.sh "create" <project> <update_dir> <source_ip> <release_ip> <ssh_key> <pkglist>
+# 2. del_pkg_rpm: delete binary rpm of package in the update directory
+#    Usage: bash pkg_rpm_update.sh "del_pkg_rpm" <project> <update_dir> <source_ip> <release_ip> <ssh_key> <pkglist>
+# 3. update_rpm: update binary rpm of package in the update directory
+#    Usage: bash pkg_rpm_update.sh "update" <project> <update_dir> <source_ip> <release_ip> <ssh_key> <pkglist>
+# 4. del_update_dir: delete update directory
+#    Usage: bash pkg_rpm_update.sh "del_update_dir" <project> <update_dir> <source_ip> <release_ip> <ssh_key> <pkglist>
+# 5. release_rpm: release binary rpm of package in the update directory
+#    Usage: bash pkg_rpm_update.sh "release" <project> <update_dir> <source_ip> <release_ip> <ssh_key> <pkglist>
 # --------------------------------------------------------------------------------------------------------------------
 
-# Insert the UPDATE directory name into the JSON file
-function insert_dir(){
-	if [[ $1 == "history" ]] || [[ $1 == "update" ]];then
-		line=`grep "$2\"$" $3`
-		if [ ! -n "${line}" ];then
-			sed -i "/\"$1\"/ a\		{\n			\"dir\": \"$2\"\n		}," $3
+# usage
+function usage() {
+    cat << EOF
+Usage: bash pkg_rpm_update.sh [action] [project] [update_dir] [source_ip] [release_ip] [ssh_key] [pkglist]
+
+optional arguments:
+    action       action method, include: create, del_pkg_rpm, update, del_update_dir and release
+    project      project name, such as: openEuler-24.03-LTS:everything
+    update_dir   update directory name
+    source_ip    dailybuild server ip
+    release_ip   release server ip
+    ssh_key      ssh server key
+    pkglist      package name list, such as: vim,gcc
+EOF
+}
+
+# ssh exec cmd
+function ssh_cmd() {
+	local ip=$1
+	local cmd=$2
+	local ignore_error=$3
+	ssh -i ${ssh_key} ${ssh_str} root@${ip} "${cmd}"
+	if [ $? -ne 0 ];then
+		echo "Error: exec cmd fail. [cmd]:${cmd}"
+		if [[ "${ignore_error}" != "y" ]];then
+			exit 1
 		fi
+	fi
+}
+
+# update repo data
+function update_repodata() {
+	local ip=$1
+	local repo_path=$2
+	for arch in ${arch_list[@]}
+	do
+		cmd="cd ${repo_path} && rm -rf ${arch}/repodata ${arch}/.repodata && createrepo -d ${arch} --workers 32"
+		ssh_cmd ${ip} "${cmd}"
+	done
+}
+
+# install jq
+function install_jq() {
+	sudo yum install -y jq &>/dev/null
+}
+
+# install createrepo
+function install_createrepo() {
+	cmd="yum install -y createrepo &>/dev/null"
+	ssh_cmd ${source_ip} "${cmd}"
+}
+
+# Init json file
+function init_json() {
+	cmd="if [ ! -s ${json_file_path} ];then echo '{' > ${json_file_path} && sed -i '/{/a\ \t\"update\":[\n\t],\n\t\"history\":[\n\t]\n}' ${json_file_path};fi"
+	ssh_cmd ${source_ip} "${cmd}"
+}
+
+# Insert the UPDATE directory name into the JSON file
+function insert_dir() {
+	local operation=$1
+	line=$(grep "${update_dir}\"$" ${json_file_name})
+	if [ ! -n "${line}" ];then
+		sed -i "/\"${operation}\"/ a\		{\n			\"dir\": \"${update_dir}\"\n		}," ${json_file_name}
 	fi
 }
 
 # Delete the UPDATE directory name in the JSON file
-function delete_dir(){
-	if [[ $1 == "update" ]];then
-		line=`grep "$2\"$" $3`
-		if [ -n "${line}" ];then
-			sed -i -e "/$2\"$/{n;d}" -e "\$!N;/\n.*$2\"$/!P;D" $3
-			sed -i "/$2\"$/d" $3
-		else
-			exit 0
-		fi
+function delete_dir() {
+	line=$(grep "${update_dir}\"$" ${json_file_name})
+	if [ -n "${line}" ];then
+		sed -i -e "/${update_dir}\"$/{n;d}" -e "\$!N;/\n.*${update_dir}\"$/!P;D" ${json_file_name}
+		sed -i "/${update_dir}\"$/d" ${json_file_name}
 	fi
 }
 
 # Update the contents of the JSON file
-function update_json_file(){
-	action=$1
-	update_dir=$2
-	json_file=$3
-	local pkglist=$4
-	if [[ ${action} == "create" ]];then
-		insert_dir "update" ${update_dir} ${json_file}
-	elif [[ ${action} == "del_update_dir" ]];then
-		delete_dir "update" ${update_dir} ${json_file}
-	elif [[ ${action} == "release" ]];then
-		if [[ "x${pkglist}" == "x" ]];then
-			delete_dir "update" ${update_dir} ${json_file}
+function update_json_file() {
+	if [[ ${need_modify_json[@]} =~ ${action} ]];then
+		init_json
+		rm -rf ${json_file_name}
+		scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${json_file_path} ${work_path}
+		if [[ ${action} == "create" ]];then
+			insert_dir "update"
+		elif [[ ${action} == "del_update_dir" ]];then
+			delete_dir
+		elif [[ ${action} == "release" ]];then
+			delete_dir
+			insert_dir "history"
 		fi
-		insert_dir "history" ${update_dir} ${json_file}
+		scp -i ${ssh_key} ${ssh_str} ${json_file_name} root@${source_ip}:${json_file_path}
+		rm -rf ${json_file_name}
 	fi
 }
 
-# search package commits
-function search_pkg_commits(){
-	local project=$1
-	local pkg_name=$2
-	local update_key=$3
-	local update_path=$4
-	local branch_name=$5
-	local action=$6
-
-	commit_file="${branch_name}-package-commit.txt"
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -f "${update_path}/${commit_file}" ];then
-	touch ${update_path}/${commit_file}
-fi
-"
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/${commit_file} ./
-	if [ ! -f ${commit_file} ];then
-		touch ${commit_file}
-	fi
-
-	if [[ ${action} == "delete" ]];then
-		for pkg in ${pkg_name[@]}
-		do
-			if [[ ${pkg} =~ ":" ]];then
-				sed -i "/^${pkg##*:}:/d" ${commit_file}
-			else
-				sed -i "/^${pkg}:/d" ${commit_file}
-			fi
-		done
-	elif [[ ${action} == "create" ]];then
+# get project snapshot_id
+function get_snapshot_id() {
+	for i in {1..5}
+	do
 		snapshot_id_list=$(ccb select builds os_project=${project} build_type=full,incremental,specified status=201,202 published_status=4 --sort create_time:desc --size 10 -f snapshot_id | jq -r '.[]._source.snapshot_id' | awk '!a[$0]++')
 		if [ "x${snapshot_id_list}" == "x" ];then
-			echo "Failed to ccb get the last 10 snapshot_id"
-			exit 1
+			if [ ${i} -eq 5 ];then
+				echo "error: ccb select snapshot_id failed."
+				exit 1
+			else
+				echo "error: ccb select snapshot_id failed, will try again."
+			fi
+		else
+			break
 		fi
+	done
+}
+
+# search package commits
+function save_pkg_commits(){
+	cmd="if [ ! -f "${commit_file_path}" ];then touch ${commit_file_path};fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	rm -f ${commit_file_name}
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${commit_file_path} ${work_path}
+
+	if [[ ${action} == "del_pkg_rpm" ]];then
+		for pkg in ${pkglist[@]}
+		do
+			sed -i "/^${pkg%%:*}:/d" ${commit_file_name}
+		done
+	elif [[ ${action} == "create" ]] || [[ ${action} == "update" ]];then
+		unset snapshot_id_list
+		get_snapshot_id
 		rm -f pkglist
-		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist ./
+		scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${pkglist_file_path} ${work_path}
 		latest_pkg=$(cat pkglist)
-		for pkg in ${pkg_name[@]}
+		for pkg in ${pkglist[@]}
 		do
 			if [[ ${pkg} =~ ":" ]];then
-				local pkg=${pkg##*:}
+				local pkg=${pkg%%:*}
 			fi
 			if [[ ${latest_pkg[@]} =~ ${pkg} ]];then
 				for snapshot_id in ${snapshot_id_list[@]}
@@ -109,718 +160,94 @@ fi
 						break
 					fi
 				done
-				sed -i "/^${pkg}:/d" ${commit_file}
+				sed -i "/^${pkg}:/d" ${commit_file_name}
 				if [[ ${commit_id} == "null" ]];then
-					echo "${pkg}:" >> ${commit_file}
+					echo "${pkg}:" >> ${commit_file_name}
 				else
-					echo "${pkg}:${commit_id}" >> ${commit_file}
+					echo "${pkg}:${commit_id}" >> ${commit_file_name}
 				fi
 			fi
 		done
 		rm -f pkglist
 	fi
-	scp -i ${update_key} -o StrictHostKeyChecking=no ${commit_file} root@${update_ip}:${update_path}/${commit_file}
+	scp -i ${ssh_key} ${ssh_str} ${commit_file_name} root@${source_ip}:${commit_file_path}
+	rm -f ${commit_file_name}
 }
 
+# save pkg rpm info file
+function save_csv_file() {
+	cmd="if [ ! -f ${csv_file_path} ];then touch ${csv_file_path};fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	rm -f ${csv_file_name}
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${csv_file_path} ${work_path}
 
-# Create UPDATE directory and add package binaries
-function copy_rpm(){
-	local obs_proj=$1
-	pkglist=$2
-	update_key=$3
-	pkg_place=$4
-	up_dir=$5
-	action=$6
-	if [ "x${up_dir}" == "x" ];then
-		date_dir="update_"`date +%Y%m%d`
-	else
-		date_dir=${up_dir}
-	fi
-
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	real_dir=${date_dir}
-	if [ ${pkg_place} == "standard" ];then
-		publish_path=(/repo/openeuler/${branch_name}/source /repo/openeuler/${branch_name}/update /repo/openeuler/${branch_name}/everything /repo/openeuler/${branch_name}/debuginfo)
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${date_dir}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		publish_path=(/repo/openeuler/${branch_name}/EPOL/update /repo/openeuler/${branch_name}/EPOL)
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		publish_path=(/repo/openeuler/${branch_name}/EPOL/update/main /repo/openeuler/${branch_name}/EPOL/main)
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/main"
-		real_dir="${date_dir}|main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		publish_path=(/repo/openeuler/${branch_name}/EPOL/update/multi_version/${pkg}/${ver} /repo/openeuler/${branch_name}/EPOL/multi_version/${pkg}/${ver})
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${date_dir}/multi_version/${pkg}/${ver}"
-		real_dir="${date_dir}|multi_version|${pkg}|${ver}"
-	else
-		echo "package family is error!"
-		exit 1
-	fi
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -d ${update_path} ];then
-	mkdir -p ${update_path} && cd ${update_path}
-	mkdir -p aarch64/Packages x86_64/Packages source/Packages
-	touch pkglist
-fi
-"
-	rm -f pkglist
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
-	pkgs=${pkglist//,/ }
-	arch=(aarch64 x86_64)
-	for p in ${ebs_proj_list[@]}
+	for pkg in ${pkglist[@]}
 	do
-		if [[ ${obs_proj} =~ ${p} ]];then
-			download_type="ccb"
-			if [[ ${obs_proj} =~ "Multi-Version" ]];then
-				obs_proj=`echo ${obs_proj//:/_}`
-			elif [[ ${obs_proj} =~ "Epol" ]];then
-				bak=`echo ${obs_proj//:/-}`
-				obs_proj=`echo ${bak//-Epol/:epol}`
-			else
-				obs_proj="`echo ${obs_proj//:/-}`:everything"
-			fi
+		sed -i "/${pkg%%:*},/d" ${csv_file_name}
+		if [[ ${action} == "update" ]] || [[ ${action} == "create" ]];then
+			rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist | sort | uniq)
+			line="${pkg%%:*},${rpms[@]}"
+			echo ${line} >> ${csv_file_name}
 		fi
 	done
-	for pkg in ${pkgs}
-	do
-		if [[ ${download_type} == "ccb" ]];then
-			for ar in ${arch[@]}
-			do
-				rpm_dir="${obs_proj}-${ar}-${pkg}"
-				ccb download os_project=${obs_proj} packages=${pkg} architecture=${ar} -b all -s -d 2>/dev/null
-				if [ $? -ne 0 ];then
-					echo "ccb download error."
-					exit 1
-				fi
-				ls ${rpm_dir}/*.rpm | awk -F'/' '{print $NF}' > ${rpm_dir}_rpmlist
-				scp -i ${update_key} -o StrictHostKeyChecking=no ./${rpm_dir}/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
-				rm -f ${rpm_dir}/*.src.rpm 2>/dev/null
-				scp -i ${update_key} -o StrictHostKeyChecking=no ./${rpm_dir}/*.rpm root@${update_ip}:${update_path}/${ar}/Packages/ 2>/dev/null
-				rm -rf ${rpm_dir} 2>/dev/null
-			done
-		else
-			for ar in ${arch[@]}
-			do
-				osc getbinaries ${obs_proj} ${pkg} standard_${ar} ${ar} --source --debug 2>/dev/null
-				ls binaries/*.rpm | awk -F'/' '{print $NF}' > "${obs_proj}-${ar}-${pkg}_rpmlist"
-				scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.src.rpm root@${update_ip}:${update_path}/source/Packages/ 2>/dev/null
-				rm -f binaries/*.src.rpm 2>/dev/null
-				scp -i ${update_key} -o StrictHostKeyChecking=no binaries/*.rpm root@${update_ip}:${update_path}/${ar}/Packages/ 2>/dev/null
-				rm -rf binaries 2>/dev/null
-			done
-		fi
-		if [[ ${pkg} =~ ":" ]];then
-			echo ${pkg##*:} >> pkglist
-		else
-			echo ${pkg} >> pkglist
-		fi
-	done
-	sort -u pkglist -o pkglist
-	scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
-	rm -f pkglist
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
-	if [[ $? -eq 0 ]];then
-		if [[ ${action} == "update" ]];then
-			echo "更新软件包(${pkglist})的二进制成功!"
-		else
-			echo "新增软件包(${pkglist})的二进制到${update_path}目录成功!"
-		fi
-	else
-		if [[ ${action} == "update" ]];then
-			echo "更新软件包(${pkglist})的二进制失败!"
-		else
-			echo "新增软件包(${pkglist})的二进制到${update_path}目录失败!"
-		fi
-	fi
-	json_file="${branch_name}-update.json"
-	if [ ${pkg_place} == "standard" ];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [[ ${pkg_place} =~ "EPOL" ]];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
-	fi
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-	update_json_file "create" ${real_dir} ${json_file}
-	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
-	check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "create"
-	remove_published_rpm ${obs_proj} ${pkglist} ${publish_path} ${update_path} ${update_key} ${pkg_place}
-	pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "update"
-	search_pkg_commits ${obs_proj} "${pkgs}" ${update_key} ${update_path} ${branch_name} "create"
+	scp -i ${ssh_key} ${ssh_str} ${csv_file_name} root@${source_ip}:${csv_file_path}
+	rm -f ${csv_file_name}
 }
 
 # Remove published rpms in update_xxx
 function remove_published_rpm(){
-	local obs_proj=$1
-	pkglist=$2
-	publish_path=$3
-	update_path=$4
-	update_key=$5
-	pkg_place=$6
-	arch=(aarch64 x86_64)
-	unset source_rpmlist
-	pkgs=${pkglist//,/ }
 	echo "[INFO]: Start delete published rpm from ${update_path}"
-	rm -f pkglist
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
-	echo "${publish_path[@]}"
-	if [[ "${pkg_place}" == "standard" ]];then
-		for path in ${publish_path[@]}
-		do
-			if [[ "${path}" =~ "source" ]];then
-				tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/Packages && ls *.src.rpm")
-				source_rpmlist+=(${tmp_source_rpmlist[@]})
-			elif [[ "${path}" =~ "update" ]];then
-				tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/source/Packages && ls *.src.rpm")
-				source_rpmlist+=(${tmp_source_rpmlist[@]})
-			fi
-		done
-		unset publish_path[0]
-	else
-		for path in ${publish_path[@]}
-		do
-			tmp_source_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/source/Packages && ls *.src.rpm")
-			source_rpmlist+=(${tmp_source_rpmlist[@]})
-		done
-	fi
+	echo "${publish_src_path[@]}"
+	unset source_rpmlist bin_rpmlist
+	for path in ${publish_src_path[@]}
+	do
+		cmd="cd ${path} && ls *.src.rpm"
+		tmp_source_rpmlist=$(ssh_cmd ${release_ip} "${cmd}")
+		source_rpmlist+=(${tmp_source_rpmlist[@]})
+	done
+
+	echo "${publish_bin_path[@]}"
+	arch=(aarch64 x86_64)
 	for ar in ${arch[@]}
 	do
-		src_flag=0
-		arch_flag=0
-		unset rpmlist
-		for path in ${publish_path[@]}
+		for path in ${publish_bin_path[@]}
 		do
-			tmp_rpmlist=$(ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${path}/${ar}/Packages && ls *.rpm")
-			rpmlist+=(${tmp_rpmlist[@]})
+			cmd="cd ${path}/${ar}/Packages && ls *.rpm"
+			tmp_rpmlist=$(ssh_cmd ${release_ip} "${cmd}")
+			bin_rpmlist+=(${tmp_rpmlist[@]})
 		done
-		for pkg in ${pkgs}
+	done
+
+	rm -f pkglist
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${pkglist_file_path} ${work_path}
+
+	for ar in ${arch[@]}
+	do
+		for pkg in ${pkglist[@]}
 		do
-			pkg_rpmlist=$(cat ${obs_proj}-${ar}-${pkg}_rpmlist)
+			pkg_rpmlist=$(cat ${project}-${ar}-${pkg}_rpmlist)
 			if [ -n "${pkg_rpmlist}" ];then
 				for pkg_rpm in ${pkg_rpmlist[@]}
 				do
-					if [[ "${pkg_rpm}" =~ ".src.rpm" ]];then
-						if [[ "${source_rpmlist[@]}" =~ "${pkg_rpm}" ]];then
-							echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/source"
-							ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/source/Packages/${pkg_rpm}"
-							src_flag=1
-							if [[ ${pkg} =~ ":" ]];then
-								sed -i "/^${pkg##*:}$/d" pkglist
-							else
-								sed -i "/^${pkg}$/d" pkglist
-							fi
-						fi
+					if [[ ${source_rpmlist[@]} =~ ${pkg_rpm} ]];then
+						echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/source"
+						cmd="rm -f ${update_path}/source/Packages/${pkg_rpm}"
+						ssh_cmd ${source_ip} "${cmd}"
+						sed -i "/^${pkg%%:*}$/d" pkglist
 					fi
-					if [[ "${rpmlist[@]}" =~ "${pkg_rpm}" ]];then
+					if [[ ${bin_rpmlist[@]} =~ ${pkg_rpm} ]];then
 						echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/${ar}"
-						ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "rm -f ${update_path}/${ar}/Packages/${pkg_rpm}"
-						arch_flag=1
-						sed -i "/^${pkg}$/d" pkglist
-						if [[ ${pkg} =~ ":" ]];then
-							sed -i "/^${pkg##*:}$/d" pkglist
-						else
-							sed -i "/^${pkg}$/d" pkglist
-						fi
+						cmd="rm -f ${update_path}/${ar}/Packages/${pkg_rpm}"
+						ssh_cmd ${source_ip} "${cmd}"
+						sed -i "/^${pkg%%:*}$/d" pkglist
 					fi
 				done
 			fi
 		done
-		if [ ${src_flag} -eq 1 ];then
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && rm -rf source/repodata && createrepo -d source"
-		fi
-		if [ ${arch_flag} -eq 1 ];then
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && rm -rf ${ar}/repodata && createrepo -d ${ar}"
-		fi
 	done
-	scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
+	scp -i ${ssh_key} ${ssh_str} pkglist root@${source_ip}:${pkglist_file_path}
 	rm -f pkglist
 	echo "[INFO]: Finish delete published rpm from ${update_path}"
-}
-
-# Publish all packages binaries
-function release_rpm(){
-	local obs_proj=$1
-	release_dir=$2	
-	update_key=$3
-	pkg_place=$4
-	pkglist=$5	
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	if [[ ${pkg_place} =~ "EPOL" ]];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
-	fi
-	real_dir=${release_dir}
-	if [ ${pkg_place} == "standard" ];then
-		repo_path="/repo/openeuler/${branch_name}/update"
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${release_dir}"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/update"
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		repo_path="/repo/openeuler/${branch_name}/EPOL/update"
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		repo_path="/repo/openeuler/${branch_name}/EPOL/update/main"
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/main"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/main"
-		real_dir="${release_dir}|main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		repo_path="/repo/openeuler/${branch_name}/EPOL/update/multi_version/${pkg}/${ver}"
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${release_dir}/multi_version/${pkg}/${ver}"
-		bak_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/update/multi_version/${pkg}/${ver}"
-		real_dir="${release_dir}|multi_version|${pkg}|${ver}"
-	else
-		echo "package family is error!"
-		exit 1
-	fi
-	path_list="aarch64 x86_64 source"
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -d ${update_dir} ];then
-	echo "${update_dir} is not exist..."
-	exit 1
-fi
-if [ ! -d ${bak_dir} ];then
-	mkdir -p ${bak_dir} && cd ${bak_dir}
-	mkdir -p aarch64/Packages x86_64/Packages source/Packages
-fi
-"
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "
-if [ ! -d ${repo_path} ];then
-	mkdir -p ${repo_path} && cd ${repo_path}
-	mkdir -p aarch64/Packages x86_64/Packages source/Packages
-fi
-"
-	json_file="${branch_name}-update.json"
-	if [[ "x${pkglist}" == "x" ]];then
-		echo "开始发布${update_dir}目录中的所有的二进制到194机器!"
-		for path in ${path_list}
-		do
-			mkdir $path
-			# backup update_xxxx dir rpm into update dir
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cp -rf ${update_dir}/${path}/Packages/*.rpm ${bak_dir}/${path}/Packages/"
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${path} --workers 32"
-			# release rpm to website
-			scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${path}/Packages/*.rpm ./$path/
-			scp -i ${update_key} -o StrictHostKeyChecking=no ./$path/*.rpm root@${release_ip}:${repo_path}/${path}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${path}/repodata && createrepo -d ${path} --workers 32"
-			rm -rf $path
-		done
-		echo "备份及发布${update_dir}成功!"
-		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-		update_json_file "release" ${real_dir} ${json_file}
-		scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
-	else
-		pkgs=${pkglist//,/ }
-		arch_list="aarch64 x86_64"
-		rm -rf ${path_list} NOT_FOUND binrpmlist
-		mkdir ${path_list} && touch NOT_FOUND
-		for p in ${ebs_proj_list[@]}
-		do
-			if [[ ${obs_proj} =~ ${p} ]];then
-				download_type="ccb"
-				if [[ ${obs_proj} =~ "Multi-Version" ]];then
-					obs_proj=`echo ${obs_proj//:/_}`
-				elif [[ ${obs_proj} =~ "Epol" ]];then
-					bak=`echo ${obs_proj//:/-}`
-					obs_proj=`echo ${bak//-Epol/:epol}`
-				else
-					obs_proj="`echo ${obs_proj//:/-}`:everything"
-				fi
-			fi
-		done
-		for pkg in ${pkgs}
-		do
-			flag=0
-			if [[ ${download_type} != "ccb" ]];then
-				res=`osc ls ${obs_proj} 2>/dev/null | grep ^${pkg}$`
-				if [[ "x${res}" == "x" ]];then
-					echo "===Error: ${obs_proj} ${pkg} is not exists!!!==="
-					exit 1
-				fi
-			fi
-			for arch in ${arch_list}
-			do
-				if [[ ${download_type} == "ccb" ]];then
-					ccb download os_project=${obs_proj} packages=${pkg} architecture=${arch} -b all -s -d &>/dev/null
-					if [ $? -ne 0 ];then
-						echo "ccb download error."
-						exit 1
-					fi
-					ls ${obs_proj}-${arch}-${pkg}/*.rpm | awk -F'/' '{print $NF}' > binrpmlist
-				else
-					osc ls -b ${obs_proj} ${pkg} standard_${arch} ${arch} 2>/dev/null | grep rpm > binrpmlist
-				fi
-				if [ ! -s binrpmlist ];then
-					continue
-				else
-					if [[ ${flag} == 0 ]];then
-						src_rpm=`cat binrpmlist | grep "src.rpm"`
-						tmp_name=`echo ${src_rpm%-*}`
-						src_rpm_name=`echo ${tmp_name%-*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/source/Packages/ && ls | grep ^${src_rpm_name} | grep -E ${src_rpm_name}-[a-zA-Z0-9.]+-[a-zA-Z0-9]+.oe"`
-						if [[ "x${result}" == "x" ]];then
-							echo "$src_rpm_name-xxx.src.rpm" >> NOT_FOUND
-							flag=1
-						else
-							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/source/Packages/${result} ./source/
-							if [ ! -f "source/${result}" ];then
-								echo "===Error: scp ${result} failed!!!==="
-								exit 1
-							fi
-						fi
-					fi
-					sed -i '/src.rpm/d' binrpmlist
-					for line in `cat binrpmlist`
-					do
-						tmp_name=`echo ${line%-*}`
-						name=`echo ${tmp_name%-*}`
-						result=`ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_dir}/${arch}/Packages/ && ls | grep ^${name} | grep -E ${name}-[a-zA-Z0-9.]+-[a-zA-Z0-9]+.oe"`
-						if [[ "x${result}" == "x" ]];then
-							echo "${name}-xxx.${arch}.rpm" >> NOT_FOUND
-						else
-							scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_dir}/${arch}/Packages/${result} ./${arch}/
-							if [ ! -f "${arch}/${result}" ];then
-								echo "===Error: scp ${result} failed!!!==="
-								exit 1
-							fi
-						fi
-					done
-				fi
-			done
-		done
-		if [ -s NOT_FOUND ];then
-			echo "==========Warning: Not Found some binaries rpm in ${update_dir} directory=========="
-			cat NOT_FOUND
-			echo "===================="
-		fi
-		echo "开始发布${update_dir}目录中软件包${pkgs}的二进制到194机器!"
-		ls ${path_list}
-		for arch in ${path_list}
-		do
-			# backup update_xxxx dir some packages binaries rpm into update dir
-			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${update_ip}:${bak_dir}/${arch}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${bak_dir} && createrepo -d ${arch} --workers 32"
-			# release some packages binaries rpm to website
-			scp -i ${update_key} -o StrictHostKeyChecking=no ./${arch}/*.rpm root@${release_ip}:${repo_path}/${arch}/Packages/
-			ssh -i ${update_key} -o StrictHostKeyChecking=no root@${release_ip} "cd ${repo_path} && rm -rf ${arch}/repodata && createrepo -d ${arch} --workers 32"
-			rm -rf ${arch}
-		done
-		echo "备份及发布成功!"
-		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-		release_pkg="${real_dir}/"
-		for pkg in ${pkgs}
-		do
-			release_pkg="${release_pkg}${pkg}|"
-		done
-		update_json_file "release" ${release_pkg} ${json_file} ${pkgs}
-		scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
-	fi
-}
-
-# Update packages binaries
-function update_rpm(){
-	local obs_proj=$1
-	pkglist=$2
-	update_key=$3
-	up_dir=$4
-	pkg_place=$5
-	
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	if [ ${pkg_place} == "standard" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
-	else
-		echo "package family is error!"
-		exit 1
-	fi
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -d ${update_path} ];then
-	echo "${update_path} is not exist..."
-	exit 2
-fi
-"
-	echo "开始更新${update_path}目录中软件包(${pkglist})的二进制!"
-	del_pkg_rpm ${obs_proj} ${pkglist} ${update_key} ${up_dir} "update" ${pkg_place} 
-	copy_rpm ${obs_proj} ${pkglist} ${update_key} ${pkg_place} ${up_dir} "update"
-}
-
-# create pkg rpm info file
-function pkg_rpm_csv(){
-	project=$1
-	pkglist=$2
-	update_key=$3
-	update_path=$4
-	branch=$5
-	action=$6
-	pkgs=${pkglist//,/ }
-	csv_file="${branch}.csv"
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -f ${update_path}/${csv_file} ];then
-	touch ${update_path}/${csv_file}
-fi
-"
-	rm -f ${csv_file}
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/${csv_file} .
-	if [ ! -f "${csv_file}" ];then
-		touch ${csv_file}
-	fi
-
-	for pkg in ${pkgs}
-	do
-		rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist | sort | uniq)
-		if [[ ${pkg} =~ ":" ]];then
-			local pkg=${pkg##*:}
-		fi
-		sed -i "/${pkg},/d" ${csv_file}
-		if [[ ${action} == "update" ]];then
-			line="${pkg},${rpms[@]}"
-			echo ${line} >> ${csv_file}
-		fi
-	done
-	scp -i ${update_key} -o StrictHostKeyChecking=no ${csv_file} root@${update_ip}:${update_path}/
-}
-
-# Delete packages binaries
-function del_pkg_rpm(){
-	local obs_proj=$1
-	pkglist=$2
-	update_key=$3
-	up_dir=$4
-	flag=$5
-	pkg_place=$6
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	if [ ${pkg_place} == "standard" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		update_path="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
-	else
-		echo "package family is error!"
-		exit 1
-	fi
-	pkg_aarch_path="${update_path}/aarch64/Packages"
-	pkg_x86_path="${update_path}/x86_64/Packages"
-	source_path="${update_path}/source/Packages"
-	pkgs=${pkglist//,/ }
-	for p in ${ebs_proj_list[@]}
-	do
-		if [[ ${obs_proj} =~ ${p} ]];then
-			download_type="ccb"
-			if [[ ${obs_proj} =~ "Multi-Version" ]];then
-				obs_proj=`echo ${obs_proj//:/_}`
-			elif [[ ${obs_proj} =~ "Epol" ]];then
-				bak=`echo ${obs_proj//:/-}`
-				obs_proj=`echo ${bak//-Epol/:epol}`
-			else
-				obs_proj="`echo ${obs_proj//:/-}`:everything"
-			fi
-		fi
-	done
-	for pkg in $pkgs
-	do
-		if [[ ${download_type} == "ccb" ]];then
-			ccb download os_project=${obs_proj} packages=${pkg} architecture=aarch64 -b all -s -d &>/dev/null
-			if [ $? -ne 0 ];then
-				echo "ccb download error."
-				exit 1
-			fi
-			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > aarch_rpmlist.txt
-			ls ${obs_proj}-aarch64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-aarch64-${pkg}_rpmlist
-			ccb download os_project=${obs_proj} packages=${pkg} architecture=x86_64 -b all -s -d &>/dev/null
-			if [ $? -ne 0 ];then
-				echo "ccb download error."
-				exit 1
-			fi
-			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > x86_rpmlist.txt
-			ls ${obs_proj}-x86_64-${pkg}/*.rpm | awk -F'/' '{print $NF}' > ${obs_proj}-x86_64-${pkg}_rpmlist
-			rm -rf ${obs_proj}-aarch64-${pkg} ${obs_proj}-x86_64-${pkg}
-		else
-			osc ls -b ${obs_proj} ${pkg} standard_aarch64 aarch64 2>/dev/null | grep rpm > aarch_rpmlist.txt
-			osc ls -b ${obs_proj} ${pkg} standard_x86_64 x86_64 2>/dev/null | grep rpm > x86_rpmlist.txt
-		fi
-		if [ -s aarch_rpmlist.txt ];then
-			src_rpm=`cat aarch_rpmlist.txt | grep "src.rpm"`
-		else
-			src_rpm=`cat x86_rpmlist.txt | grep "src.rpm"`
-		fi
-		tmp_name=`echo ${src_rpm%-*}`
-		rpm_name=`echo ${tmp_name%-*}`
-		big_version=`echo ${tmp_name##*-}`
-		sed -i '/src.rpm/d' aarch_rpmlist.txt
-		sed -i '/src.rpm/d' x86_rpmlist.txt
-		if [ -s aarch_rpmlist.txt ];then
-			for line in `cat aarch_rpmlist.txt`
-			do
-				name=`echo ${line%-*-*}`
-				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls ${name}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
-			done
-		fi
-		if [ -s x86_rpmlist.txt ];then
-			for line2 in `cat x86_rpmlist.txt`
-			do
-				name2=`echo ${line2%-*-*}`
-				ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_x86_path} && ls ${name2}-*.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
-			done
-		fi
-		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${source_path} && ls ${rpm_name}-*.src.rpm 2>/dev/null | grep ${big_version} | xargs rm 2>/dev/null"
-	done
-	rm -f *_rpmlist.txt 2>/dev/null
-
-	if [[ ${flag} == "delete" ]];then
-		rm -f pkglist 2>/dev/null
-		scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${update_path}/pkglist .
-		for pkg in ${pkgs}
-		do
-			if [[ ${pkg} =~ ":" ]];then
-				sed -i "/^${pkg##*:}$/d" pkglist
-			else
-				sed -i "/^${pkg}$/d" pkglist
-			fi
-		done	
-		scp -i ${update_key} -o StrictHostKeyChecking=no pkglist root@${update_ip}:${update_path}/
-		ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${update_path} && createrepo -d aarch64 && createrepo -d x86_64 && createrepo -d source"
-		check_update_rpm ${obs_proj} ${update_path} ${update_key} ${pkglist} "delete"
-		pkg_rpm_csv ${obs_proj} ${pkglist} ${update_key} ${update_path} ${branch_name} "delete"
-		search_pkg_commits ${obs_proj} "${pkgs}" ${update_key} ${update_path} ${branch_name} ${flag}
-	fi
-}
-
-# Delete UPDATE directory
-function del_update_dir(){
-	local obs_proj=$1
-	up_dir=$2
-	update_key=$3
-	pkg_place=$4
-
-	if [[ ${obs_proj} =~ ":Epol" ]];then
-		bak=`echo ${obs_proj%%:Epol*}`
-		branch_name=`echo ${bak//:/-}`
-	else
-		branch_name=`echo ${obs_proj//:/-}`
-	fi
-	real_dir=${up_dir}
-	if [ ${pkg_place} == "standard" ];then
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/${up_dir}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}"
-	elif [ ${pkg_place} == "EPOL-main" ];then
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/main"
-		real_dir="${up_dir}|main"
-	elif [[ ${pkg_place} == "EPOL-multi_version" ]] && [[ ${obs_proj} =~ "Multi-Version" ]];then
-		tmp=`echo ${obs_proj##*Multi-Version:}`
-		pkg=`echo ${tmp%:*}`
-		ver=`echo ${tmp#*:}`
-		update_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL/${up_dir}/multi_version/${pkg}/${ver}"
-		real_dir="${up_dir}|multi_version|${pkg}|${ver}"
-	else
-		echo "package family is error!"
-		exit 1
-	fi
-	ssh -i ${update_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${update_ip} "
-if [ ! -d ${update_dir} ];then
-	echo "删除${update_dir}目录失败!"
-	exit 5
-else
-	rm -rf ${update_dir}
-	echo "删除${update_dir}目录成功!"
-fi
-"
-	if [ ${pkg_place} == "standard" ];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}"
-	elif [ ${pkg_place} == "EPOL" ];then
-		branch_dir="/repo/openeuler/repo.openeuler.org/${branch_name}/EPOL"
-	elif [[ ${pkg_place} =~ "EPOL-" ]];then
-		exit 0
-	fi
-	json_file="${branch_name}-update.json"
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${branch_dir}/${json_file} .
-	update_json_file "del_update_dir" ${real_dir} ${json_file}
-	scp -i ${update_key} -o StrictHostKeyChecking=no ${json_file} root@${update_ip}:${branch_dir}/
-}
-
-# Check packages binaries
-function check_update_rpm(){
-	echo "Start checking update directory package binaries..."
-	obs_proj=$1
-	update_path=$2
-	update_key=$3
-	pkglist=$4
-	action=$5
-	pkg_aarch_path="${update_path}/aarch64/Packages"
-	pkg_x86_path="${update_path}/x86_64/Packages"
-	source_path="${update_path}/source/Packages"
-	pkgs=${pkglist//,/ }
-	for pkg in ${pkgs}
-	do
-		cat ${obs_proj}-aarch64-${pkg}_rpmlist >> arch_rpm_list
-		cat ${obs_proj}-x86_64-${pkg}_rpmlist >> x86_rpm_list
-	done
-	cat arch_rpm_list x86_rpm_list | grep "src.rpm" | sort | uniq >> src_rpm_list
-	sed -i '/.src.rpm/d' arch_rpm_list x86_rpm_list
-	sed -i 's/^ *//g' arch_rpm_list src_rpm_list x86_rpm_list
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && ls *.rpm > update_arch_rpm 2>/dev/null && cd ${pkg_x86_path} && ls *.rpm > update_x86_rpm 2>/dev/null && cd ${source_path} && ls *.rpm > update_src_rpm 2>/dev/null"
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_aarch_path}/update_arch_rpm . 2>/dev/null
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${pkg_x86_path}/update_x86_rpm . 2>/dev/null
-	scp -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip}:${source_path}/update_src_rpm . 2>/dev/null
-	ssh -i ${update_key} -o StrictHostKeyChecking=no root@${update_ip} "cd ${pkg_aarch_path} && rm -f update_arch_rpm 2>/dev/null && cd ${pkg_x86_path} && rm -f update_x86_rpm 2>/dev/null && cd ${source_path} && rm -f update_src_rpm 2>/dev/null"
-	parse_data arch_rpm_list update_arch_rpm ${pkg_aarch_path} ${action}
-	parse_data src_rpm_list update_src_rpm ${source_path} ${action}
-	parse_data x86_rpm_list update_x86_rpm ${pkg_x86_path} ${action}
-	echo "======================检查结果汇总======================"
-	if [ -s check_result ];then
-		if [[ ${action} == "delete" ]];then
-			echo "删除${update_path}目录中软件包(${pkglist})的二进制失败!"
-			rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
-			exit 1
-		fi
-		cat check_result
-		rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
-		exit 1
-	else
-		if [[ ${action} == "delete" ]];then
-			echo "删除${update_path}目录中软件包(${pkglist})的二进制成功!"
-		fi
-		echo "经过检查后，${update_path}目录中软件包(${pkglist})的二进制无缺失且无多余！"
-		rm -f update_*_rpm *_rpm_list check_result 2>/dev/null
-	fi
 }
 
 # Process the data
@@ -828,17 +255,16 @@ function parse_data(){
 	compare_file=$1
 	base_file=$2
 	pkg_path=$3
-	action=$4
 	if [ -s ${base_file} ];then
 		for line in `cat ${compare_file}`
 		do
 			grep "^${line}$" ${base_file}
 			if [[ $? -eq 0 ]];then
-				if [[ ${action} == "delete" ]];then
+				if [[ ${action} == "del_pkg_rpm" ]];then
 					echo "${pkg_path}目录中多余二进制:${line}" >> check_result
 				fi
 			else
-				if [[ ${action} != "delete" ]];then
+				if [[ ${action} != "del_pkg_rpm" ]];then
 					echo "${pkg_path}目录中缺少二进制:${line}" >> check_result
 				fi
 			fi
@@ -846,40 +272,337 @@ function parse_data(){
 	fi
 }
 
-# Prepare the environment
-function prepare_env(){
-	ssh -i $1 -o StrictHostKeyChecking=no root@${update_ip} "yum install -y createrepo &>/dev/null"
+# Check packages binaries
+function check_update_rpm() {
+	echo "Start checking update directory package binaries..."
+	rm -f arm_rpmlist x86_rpmlist src_rpmlist check_result
+	if [[ ${action} == "del_pkg_rpm" ]];then
+		for pkg in ${pkglist[@]}
+		do
+			ccb ls -p ${project} ${pkg} -a aarch64 | grep "\.rpm" | sed 's/"//g;s/,//g;s/ //g' >> arm_rpmlist
+			ccb ls -p ${project} ${pkg} -a x86_64 | grep "\.rpm" | sed 's/"//g;s/,//g;s/ //g' >> x86_rpmlist
+		done
+	else
+		for pkg in ${pkglist[@]}
+		do
+			cat ${project}-aarch64-${pkg}_rpmlist >> arm_rpmlist
+			cat ${project}-x86_64-${pkg}_rpmlist >> x86_rpmlist
+		done
+	fi
+	cat arm_rpmlist x86_rpmlist | grep "\.src.rpm" | sort | uniq >> src_rpmlist
+	sed -i '/.src.rpm/d' arm_rpmlist x86_rpmlist
+	sed -i 's/^ *//g' arm_rpmlist src_rpmlist x86_rpmlist
+	pkg_arm_path="${update_path}/aarch64/Packages"
+	pkg_src_path="${update_path}/source/Packages"
+	pkg_x86_path="${update_path}/x86_64/Packages"
+	cmd="cd ${pkg_arm_path} && ls *.rpm > /tmp/update_arm_rpmlist && cd ${pkg_src_path} && ls *.rpm > /tmp/update_src_rpmlist && cd ${pkg_x86_path} && ls *.rpm > /tmp/update_x86_rpmlist"
+	ssh_cmd ${source_ip} "${cmd}"
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:/tmp/update_arm_rpmlist ${work_path}
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:/tmp/update_src_rpmlist ${work_path}
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:/tmp/update_x86_rpmlist ${work_path}
+	cmd="cd /tmp && rm -f update_arm_rpmlist update_src_rpmlist update_x86_rpmlist"
+	ssh_cmd ${source_ip} "${cmd}"
+
+	parse_data arm_rpmlist update_arm_rpmlist ${pkg_arm_path}
+	parse_data src_rpmlist update_src_rpmlist ${pkg_src_path}
+	parse_data x86_rpmlist update_x86_rpmlist ${pkg_x86_path}
+	echo "======================检查结果汇总======================"
+	if [ -s check_result ];then
+		if [[ ${action} == "del_pkg_rpm" ]];then
+			echo "删除${update_path}目录中软件包(${pkglist[@]})的二进制失败!"
+			rm -f *_rpmlist check_result
+			exit 1
+		fi
+		cat check_result
+		rm -f *arm_rpmlist *src_rpmlist *x86_rpmlist check_result
+		exit 1
+	else
+		if [[ ${action} == "del_pkg_rpm" ]];then
+			echo "删除${update_path}目录中软件包(${pkglist[@]})的二进制成功!"
+		fi
+		echo "经过检查后，${update_path}目录中软件包(${pkglist[@]})的二进制无缺失且无多余！"
+		rm -f *arm_rpmlist *src_rpmlist *x86_rpmlist check_result
+	fi
 }
 
-# Main function
-function main(){
-	ebs_proj_list=(openEuler:22.03:LTS:SP1 openEuler:22.03:LTS:SP2)
-	if [ $1 == "openEuler:Mainline" ];then
-		echo "openEuler:Mainline not need update"
-		exit 3
+# Create UPDATE directory and add package binaries
+function copy_rpm() {
+	cmd="if [ ! -d ${update_path} ];then mkdir -p ${update_path} && cd ${update_path} && mkdir -p aarch64/Packages x86_64/Packages source/Packages && touch pkglist;fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	rm -f pkglist
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${pkglist_file_path} ${work_path}
+	arch=(aarch64 x86_64)
+	for pkg in ${pkglist[@]}
+	do
+		for ar in ${arch[@]}
+		do
+			rpm_dir="${project}-${ar}-${pkg}"
+			for i in {1..5}
+			do
+				ccb download os_project=${project} packages=${pkg} architecture=${ar} -b all -s -d 2>/dev/null
+				if [ $? -ne 0 ];then
+					if [ ${i} -eq 5 ];then
+						echo "error: ccb download package:${pkg} failed."
+						exit 1
+					else
+						echo "error: ccb download package:${pkg} failed, will try again."
+					fi
+
+				else
+					break
+				fi
+
+			done
+			ls ${rpm_dir}/*.rpm | awk -F'/' '{print $NF}' > ${rpm_dir}_rpmlist
+			scp -i ${ssh_key} ${ssh_str} ./${rpm_dir}/*.src.rpm root@${source_ip}:${update_path}/source/Packages/
+			rm -f ${rpm_dir}/*.src.rpm
+			scp -i ${ssh_key} ${ssh_str} ./${rpm_dir}/*.rpm root@${source_ip}:${update_path}/${ar}/Packages/
+			rm -rf ${rpm_dir}
+		done
+		echo ${pkg%%:*} >> pkglist
+	done
+	sort -u pkglist -o pkglist
+	scp -i ${ssh_key} ${ssh_str} pkglist root@${source_ip}:${pkglist_file_path}
+	rm -f pkglist
+}
+
+# Delete UPDATE directory
+function del_update_dir(){
+	cmd="if [ -d ${update_path} ];then rm -rf ${update_path} && echo \"删除${update_path}目录成功.\";fi"
+	ssh_cmd ${source_ip} "${cmd}"
+}
+
+# Update packages binaries
+function update_rpm(){
+	cmd="if [ ! -d ${update_path} ];then echo \"error: ${update_path} is not exist.\" && exit 1;fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	echo "开始更新${update_path}目录中软件包(${pkglist[@]})的二进制!"
+	del_pkg_rpm
+	copy_rpm
+}
+
+# Delete packages binaries
+function del_pkg_rpm() {
+	rm -f ${csv_file_name}
+	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${csv_file_path} ${work_path}
+	for pkg in ${pkglist[@]}
+	do
+		rpms=$(grep "^${pkg}," ${csv_file_name} | awk -F',' '{print $NF}')
+		for name in ${rpms[@]}
+		do
+			cmd="cd ${update_path} && find . -name ${name} | xargs rm -f"
+			ssh_cmd ${source_ip} "${cmd}"
+		done
+	done
+	if [[ ${action} == "del_pkg_rpm" ]];then
+		rm -f pkglist
+		scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${pkglist_file_path} ${work_path}
+		for pkg in ${pkglist[@]}
+		do
+			sed -i "/^${pkg%%:*}$/d" pkglist
+		done	
+		scp -i ${ssh_key} ${ssh_str} pkglist root@${source_ip}:${pkglist_file_path}
+		rm -f pkglist
 	fi
-	prepare_env $3
-	if [ $# -eq 5 ];then
-		if [ ${4} == "create" ];then
-			copy_rpm $1 $2 $3 $5
-		elif [ ${4} == "release" ];then
-			release_rpm $1 $2 $3 $5
-		elif [ ${4} == "del_update_dir" ];then
-			del_update_dir $1 $2 $3 $5
+}
+# Publish all packages binaries
+function release_rpm(){
+	cmd="if [ ! -d ${update_path} ];then echo \"error: ${update_path} is not exist.\" && exit 1;fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	
+	cmd="if [ ! -d ${backup_path} ];then mkdir -p ${backup_path}/aarch64/Packages ${backup_path}/x86_64/Packages ${backup_path}/source/Packages;fi"
+	ssh_cmd ${source_ip} "${cmd}"
+	
+	cmd="if [ ! -d ${release_path} ];then mkdir -p ${release_path}/aarch64/Packages ${release_path}/x86_64/Packages ${release_path}/source/Packages;fi"
+	ssh_cmd ${release_ip} "${cmd}"
+
+	if [[ "x${pkglist[@]}" == "x" ]];then
+		echo "start release ${update_path} directory all rpms file."
+		for arch in ${arch_list[@]}
+		do
+			rm -rf ${arch} && mkdir ${arch}
+			# backup rpm
+			cmd="cp -rf ${update_path}/${arch}/Packages/*.rpm ${backup_path}/${arch}/Packages/"
+			ssh_cmd ${source_ip} "${cmd}"
+
+			# release rpm
+			scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${update_path}/${arch}/Packages/*.rpm ./${arch}/
+			scp -i ${ssh_key} ${ssh_str} ./${arch}/*.rpm root@${release_ip}:${release_path}/${arch}/Packages/
+			rm -rf ${arch}
+		done
+		echo "release all rpms succeed."
+	else
+		flag=0
+		rm -f ${csv_file_name} pkglist 
+		scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${pkglist_file_path} ${work_path}
+		pkglist_file_content=$(cat pkglist)
+		scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${csv_file_path} ${work_path}
+		rm -rf ${arch_list[@]} && mkdir ${arch_list[@]}
+		for pkg in ${pkglist[@]}
+		do
+			if [[ ! ${pkglist_file_content[@]} =~ ${pkg} ]];then
+				echo "warning: not find package:${pkg} in ${update_path} directory."
+				continue
+			fi
+			rpms=$(grep "^${pkg}," ${csv_file_name} | awk -F',' '{print $NF}')
+			for name in ${rpms[@]}
+			do
+				cmd="find ${update_path} -name ${name}"
+				result=$(ssh_cmd ${source_ip} "${cmd}")
+				if [ ! -z "${result}" ];then
+					flag=1
+					for res in ${result[@]}
+					do
+						for arch in ${arch_list[@]}
+						do
+							if [[ ${res} =~ "${update_dir}/${arch}" ]];then
+								scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${res} ./${arch}/
+								break
+							fi
+						done
+					done
+				else
+					echo "warning: not find ${name} in ${update_path} directory."
+				fi
+			done
+		done
+		rm -f ${csv_file_name}
+		if [ ${flag} -eq 0 ];then
+			echo "warning: nothing to release."
+			exit 1
 		fi
-	elif [ $# -eq 6 ];then
-		if [ ${4} == "create" ];then
-			copy_rpm $1 $2 $3 $5 $6
-		elif [ ${4} == "release" ];then
-			release_rpm $1 $2 $3 $5 $6
-		elif [ ${4} == "update" ];then
-			update_rpm $1 $2 $3 $5 $6
-		elif [ ${4} == "del_pkg_rpm" ];then
-			del_pkg_rpm $1 $2 $3 $5 "delete" $6
+		echo "start release ${update_path} directory package:${pkglist[@]}"
+		ls ${arch_list[@]}
+		for arch in ${arch_list[@]}
+		do
+			# backup rpm
+			scp -i ${ssh_key} ${ssh_str} ./${arch}/*.rpm root@${source_ip}:${backup_path}/${arch}/Packages/
+			# release some package rpms
+			scp -i ${ssh_key} ${ssh_str} ./${arch}/*.rpm root@${release_ip}:${release_path}/${arch}/Packages/
+			rm -rf ${arch}
+		done
+		echo "release some packages rpms succeed."
+	fi
+}
+
+
+# Main
+function main() {
+	if [ $# -lt 6 ] || [ $# -gt 7 ];then
+		echo "Error: please check the params."
+		usage
+		exit 1
+	fi
+	action=$1
+	project=$2
+	update_dir=$3
+	source_ip=$4
+	release_ip=$5
+	ssh_key=$6
+	pkglist=$7
+
+	if [ "x${update_dir}" == "x" ];then
+		update_dir="update_"`date +%Y%m%d`
+	fi
+
+	if [ -z "${action}" ] || [ -z "${project}" ] || [ -z "${update_dir}" ] || [ -z "${source_ip}" ] || [ -z "${release_ip}" ] || [ -z "${ssh_key}" ];then
+		echo "Error: please check the params."
+		usage
+		exit 1
+	fi
+
+	need_pkglist=(create del_pkg_rpm update)
+	if [[ ${need_pkglist[@]} =~ ${action} ]];then
+		if [ -z "${pkglist[@]}" ];then
+			echo "Error: pkglist is empty."
+			usage
+			exit 1
 		fi
+	fi
+
+	if [[ ${project} =~ "everything" ]];then
+		tmp_str=${project%%:everything*}
+		branch=${tmp_str%%-everything*}
+		branch_path="/repo/openeuler/repo.openeuler.org/${branch}"
+		update_path="${branch_path}/${update_dir}"
+		backup_path="${branch_path}/update"
+		release_path="/repo/openeuler/${branch}/update"
+		publish_src_path=(/repo/openeuler/${branch}/source/Packages /repo/openeuler/${branch}/update/source/Packages)
+		publish_bin_path=(/repo/openeuler/${branch}/everything /repo/openeuler/${branch}/debuginfo /repo/openeuler/${branch}/update)
+	elif [[ ${project} =~ "epol" ]];then
+		tmp_str=${project%%:epol*}
+		branch=${tmp_str%%-epol*}
+		branch_path="/repo/openeuler/repo.openeuler.org/${branch}/EPOL"
+		update_path="${branch_path}/${update_dir}/main"
+		backup_path="${branch_path}/update/main"
+		release_path="/repo/openeuler/${branch}/EPOL/update/main"
+		publish_src_path=(/repo/openeuler/${branch}/EPOL/update/main/source/Packages /repo/openeuler/${branch}/EPOL/main/source/Packages)
+		publish_bin_path=(/repo/openeuler/${branch}/EPOL/update/main /repo/openeuler/${branch}/EPOL/main)
+	elif [[ ${project} =~ "Multi-Version" ]];then
+		tmp_str=${project%%_Epol_*}
+		branch=${tmp_str//_/-}
+		tmp_str=${project##*Multi-Version_}
+		pkg=${tmp_str%_*}
+		ver=${tmp_str#*_}
+		branch_path="/repo/openeuler/repo.openeuler.org/${branch}/EPOL"
+		update_path="${branch_path}/${update_dir}/multi_version/${pkg}/${ver}"
+		backup_path="${branch_path}/update/multi_version/${pkg}/${ver}"
+		release_path="/repo/openeuler/${branch}/EPOL/update/multi_version/${pkg}/${ver}"
+		publish_src_path=(/repo/openeuler/${branch}/EPOL/multi_version/${pkg}/${ver}/source/Packages /repo/openeuler/${branch}/EPOL/update/multi_version/${pkg}/${ver}/source/Packages)
+		publish_bin_path=(/repo/openeuler/${branch}/EPOL/multi_version/${pkg}/${ver} /repo/openeuler/${branch}/EPOL/update/multi_version/${pkg}/${ver})
+	else
+		echo "error: the project name is not standard."
+		exit 1
+	fi
+	
+	work_path=${PWD}
+	pkglist=${pkglist//,/ }
+	arch_list=(aarch64 source x86_64)
+	need_modify_json=(create del_update_dir release)
+	need_modify_pkglist=(create del_pkg_rpm update)
+	json_file_name="${branch}-update.json"
+	json_file_path="${branch_path}/${json_file_name}"
+	csv_file_name="${branch}.csv"
+	csv_file_path="${update_path}/${csv_file_name}"
+	commit_file_name="${branch}-package-commit.txt"
+	commit_file_path="${update_path}/${commit_file_name}"
+	pkglist_file_path="${update_path}/pkglist"
+	ssh_str="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+	
+	install_jq
+	install_createrepo
+	if [ ${action} == "create" ];then
+		copy_rpm
+		update_json_file
+		save_csv_file
+		check_update_rpm
+		remove_published_rpm
+		update_repodata ${source_ip} ${update_path}
+		save_pkg_commits
+	elif [ ${action} == "update" ];then
+		update_rpm
+		save_csv_file
+		check_update_rpm
+		remove_published_rpm
+		update_repodata ${source_ip} ${update_path}
+		save_pkg_commits
+	elif [ ${action} == "del_update_dir" ];then
+		del_update_dir
+		update_json_file
+	elif [ ${action} == "del_pkg_rpm" ];then
+		del_pkg_rpm
+		check_update_rpm
+		save_csv_file
+		update_repodata ${source_ip} ${update_path}
+		save_pkg_commits
+	elif [ ${action} == "release" ];then
+		release_rpm
+		update_repodata ${source_ip} ${backup_path}
+		update_repodata ${release_ip} ${release_path}
+		update_json_file
 	else
 		echo "error, please check parameters"
-		exit 4
+		exit 1
 	fi
 }
 
