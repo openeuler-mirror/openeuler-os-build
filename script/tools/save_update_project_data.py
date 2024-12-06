@@ -144,7 +144,7 @@ def construct_data(project_config, package_repos):
     config_dict['package_repos'] = package_repos
     config_dict['build_targets'] = project_config['build_targets']
     config_dict['bootstrap_rpm_repo'] = project_config['bootstrap_rpm_repo']
-    tmp_str = f"tag: {tag_str}\n"
+    tmp_str = f"build_tag: {tag_str}\n"
     config_dict['build_env_macros'] = yaml.safe_load(tmp_str + project_config['build_env_macros'])
     return config_dict
 
