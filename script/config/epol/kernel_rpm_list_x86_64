@@ -1,0 +1,9 @@
+kernel-rt
+kernel-rt-tools
+kernel-rt-tools-devel
+kernel-rt-source
+kernel-rt-devel
+kernel-rt-headers
+kernel-rt-debuginfo
+kernel-rt-debugsource
+kernel-rt-tools-debuginfo

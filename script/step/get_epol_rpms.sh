@@ -55,7 +55,7 @@ function get_epol_rpms_inchroot()
 
     yum-config-manager --add-repo ${EPOL_PROJECT_REPO}
     yum clean all
-    SSH_CMD="rm -rf ${RELEASE_DIR};mkdir -p ${RELEASE_DIR}/main"
+    SSH_CMD="rm -rf ${RELEASE_DIR}/main/${ARCH};mkdir -p ${RELEASE_DIR}/main/${ARCH}"
     sshcmd "${SSH_CMD}"
     tmp_dir="/tmp/EPOL/main/${ARCH}"
     mkdir -p ${tmp_dir}/Packages
@@ -71,6 +71,18 @@ function get_epol_rpms_inchroot()
     fi
     yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
     rm -rf ${tmp_dir}/Packages/var
+
+    # download everything project kernel rpm
+    rm -rf /etc/yum.repos.d/*
+    yum-config-manager --add-repo ${STANDARD_PROJECT_REPO}
+    yum clean all
+    rpmlist=$(cat ${BUILD_SCRIPT_DIR}/config/epol/kernel_rpm_list_${ARCH})
+    for rpms in ${rpmlist[@]}
+    do
+        yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" ${rpms}
+    done
+    rm -rf ${tmp_dir}/Packages/var
+
     check_rpm_sign ${tmp_dir}
     createrepo -d ${tmp_dir}
     sshscp "${tmp_dir}" "${RELEASE_DIR}/main/"
@@ -78,6 +90,8 @@ function get_epol_rpms_inchroot()
         rm -rf /etc/yum.repos.d/*
         yum-config-manager --add-repo "${EPOL_PROJECT_REPO%/*}/aarch64" --add-repo "${EPOL_PROJECT_REPO%/*}/x86_64"
         yum clean all
+        SSH_CMD="rm -rf ${RELEASE_DIR}/main/source;mkdir -p ${RELEASE_DIR}/main/source"
+        sshcmd "${SSH_CMD}"
         tmp_source="/tmp/EPOL/main/source"
         mkdir -p ${tmp_source}/Packages
         yum list --installroot="${tmp_source}/Packages" --available | awk '{print $1}' | grep "\.src" > ava_epol_lst
@@ -92,6 +106,18 @@ function get_epol_rpms_inchroot()
         fi
         yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source $(cat ava_epol_lst | tr '\n' ' ')
         rm -rf ${tmp_source}/Packages/var
+
+        # download everything project kernel source rpm
+        rm -rf /etc/yum.repos.d/*
+        yum-config-manager --add-repo "${STANDARD_PROJECT_REPO%/*}/aarch64" --add-repo "${STANDARD_PROJECT_REPO%/*}/x86_64"
+        yum clean all
+        rpmlist=$(cat ${BUILD_SCRIPT_DIR}/config/epol/kernel_src_list)
+        for rpms in ${rpmlist[@]}
+        do
+            yumdownloader --installroot="${tmp_source}/Packages" --destdir="${tmp_source}/Packages" --source ${rpms}
+        done
+        rm -rf ${tmp_source}/Packages/var
+
         check_rpm_sign ${tmp_source}
         createrepo -d ${tmp_source}
         sshscp "${tmp_source}" "${RELEASE_DIR}/main/"
@@ -159,10 +185,12 @@ function get_epol_rpms_inchroot()
             yumdownloader --installroot="${tmp_dir}/Packages" --destdir="${tmp_dir}/Packages" $(cat ava_epol_lst | tr '\n' ' ')
             rm -rf ${tmp_dir}/Packages/var
             createrepo -d ${tmp_dir}
-            SSH_CMD="mkdir -p ${RELEASE_DIR}/multi_version/${PKG}/${VER}"
+            SSH_CMD="rm -rf ${RELEASE_DIR}/multi_version/${PKG}/${VER}/${ARCH};mkdir -p ${RELEASE_DIR}/multi_version/${PKG}/${VER}/${ARCH}"
             sshcmd "${SSH_CMD}"
             sshscp "${tmp_dir}" "${RELEASE_DIR}/multi_version/${PKG}/${VER}/"
             if [[ "${ARCH}" == "aarch64" ]];then
+                SSH_CMD="rm -rf ${RELEASE_DIR}/multi_version/${PKG}/${VER}/source;mkdir -p ${RELEASE_DIR}/multi_version/${PKG}/${VER}/source"
+                sshcmd "${SSH_CMD}"
                 tmp_source="/tmp/EPOL/multi_version/${PKG}/${VER}/source"
                 mkdir -p ${tmp_source}/Packages
                 yum-config-manager --add-repo "${repo_name}/x86_64"
