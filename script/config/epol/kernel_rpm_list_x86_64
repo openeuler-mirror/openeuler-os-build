@@ -7,3 +7,10 @@ kernel-rt-headers
 kernel-rt-debuginfo
 kernel-rt-debugsource
 kernel-rt-tools-debuginfo
+haoc-kernel
+haoc-kernel-tools
+haoc-kernel-tools-devel
+haoc-kernel-source
+haoc-kernel-devel
+haoc-kernel-headers
+haoc-kernel-debugsource
