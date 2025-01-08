@@ -567,7 +567,7 @@ function main() {
 	commit_file_name="${branch}-package-commit.txt"
 	commit_file_path="${update_path}/${commit_file_name}"
 	pkglist_file_path="${update_path}/pkglist"
-	ssh_str="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+	ssh_str="-o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 	
 	install_jq
 	install_createrepo
