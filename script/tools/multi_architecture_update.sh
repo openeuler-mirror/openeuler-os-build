@@ -101,9 +101,9 @@ function update_pkglist_file() {
 		for name in ${pkgname[@]}
 		do
 			if [[ ${operation} == "del_pkg_rpm" ]];then
-				sed -i "/^${name}$/d" pkglist
+				sed -i "/^${name%%:*}$/d" pkglist
 			elif [[ ${operation} == "create" ]];then
-				echo ${name} >> pkglist
+				echo ${name%%:*} >> pkglist
 			fi
 		done
 		sort -u pkglist -o pkglist
@@ -126,13 +126,10 @@ function update_csv_file() {
 	scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${source_ip}:${csv_file_path} ./
 	for pkg in ${pkgname[@]}
 	do
-		if [[ ${pkg} == "kernel:kernel" ]];then
-			local pkg="kernel"
-		fi
-		sed -i "/${pkg},/d" ${csv_file_name}
+		sed -i "/${pkg%%:*},/d" ${csv_file_name}
 		if [[ ${operation} == "update" ]] || [[ ${operation} == "create" ]];then
 			rpms=$(cat ${project}-${architecture}-${pkg}_rpmlist)
-			line="${pkg},${rpms[@]}"
+			line="${pkg%%:*},${rpms[@]}"
 			echo ${line} >> ${csv_file_name}
 		fi
 	done
@@ -164,7 +161,7 @@ function remove_published_rpm(){
 					echo "[WARNING]: ${pkg_rpm} has been published, will delete from dailybuild ${update_path}/${architecture}"
 					cmd="rm -f ${update_path}/${architecture}/Packages/${pkg_rpm}"
 					ssh_cmd ${source_ip} "${cmd}"
-					sed -i "/^${pkg}$/d" pkglist
+					sed -i "/^${pkg%%:*}$/d" pkglist
 					flag=1
 				fi
 			done
@@ -204,7 +201,7 @@ function check_rpm_complete() {
 	for pkg in ${pkgname[@]}
 	do
 		if [[ ${operation} == "del_pkg_rpm" ]];then
-			grep "^${pkg}," ${csv_file_name} | awk -F',' '{print $NF}' | sed 's/ /\n/g' >> ${architecture}_rpm_list
+			grep "^${pkg%%:*}," ${csv_file_name} | awk -F',' '{print $NF}' | sed 's/ /\n/g' >> ${architecture}_rpm_list
 		else
 			cat ${project}-${architecture}-${pkg}_rpmlist >> ${architecture}_rpm_list
 		fi
@@ -259,7 +256,7 @@ function del_pkg_rpm() {
 	scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${source_ip}:${csv_file_path} ./
 	for pkg in ${pkgname[@]}
 	do
-		rpms=$(grep "^${pkg}," ${csv_file_name} | awk -F',' '{print $NF}')
+		rpms=$(grep "^${pkg%%:*}," ${csv_file_name} | awk -F',' '{print $NF}')
 		cmd="cd ${update_path}/${architecture}/Packages && rm -f ${rpms}"
 		ssh_cmd ${source_ip} "${cmd}"
 	done
@@ -307,7 +304,7 @@ function release() {
 		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${source_ip}:${csv_file_path} ./
 		for pkg in ${pkgname[@]}
 		do
-			rpms=$(grep "^${pkg}," ${csv_file_name} | awk -F',' '{print $NF}')
+			rpms=$(grep "^${pkg%%:*}," ${csv_file_name} | awk -F',' '{print $NF}')
 			for rpm in ${rpms[@]}
 			do
 				scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@${source_ip}:${update_path}/${architecture}/Packages/${rpm} ./${architecture}/
