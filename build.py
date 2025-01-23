@@ -18,7 +18,7 @@ PARAMS = ['all', 'set_release_dir', 'update_release_info', 'build_and_wait', 'ma
           'make_compile_env_storage', 'make_euleros_certdb', 'make_vm_qcow2', 'make_compile_tools', 'make_images_slim',
           'make_tools_lib_storage', 'make_container_tools', 'make_tools_debug_tools', 'make_upgrade_patch',
           'make_tools_dockertools', 'make_other_tools', 'upload_to_cmc', 'make_upload_cmc_image', 'make_iso_everything',
-          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms', 'make_edge_iso', 'make_desktop_iso', 'make_riscv64_qemu_image']
+          'make_iso_everysrc', 'make_debug_everything', 'push_lts_dir', 'make_netinst_iso', 'get_epol_rpms', 'make_edge_iso', 'make_desktop_iso', 'make_riscv64_qemu_image', 'make_devstation_iso', 'make_devstation_netinst_iso' ]
 
 
 class Build(object):
@@ -106,10 +106,11 @@ class Build(object):
             if os.system(cmd) != 0:
                 logger.error("build fail")
                 return -1
-            cmd = "bash -x reset_release_server_ip.sh"
-            if os.system(cmd) != 0:
-                logger.error("build fail")
-                return -1
+            if "devstation" not in step:
+                cmd= "bash -x reset_release_server_ip.sh"
+                if os.system(cmd) != 0:
+                    logger.error("build fail")
+                    return -1
             code = trace_execute("bash {0} {1}".format(
                 self.local_build_shell_path, step), env=self.env, logger=logger)
             if code != 0 and code != "0":
@@ -141,6 +142,8 @@ def usage():
     print("* make_iso                        *")
     print("* make_edge_iso                   *")
     print("* make_desktop_iso                *")
+    print("* make_devstation_iso             *")
+    print("* make_devstation_netinst_iso     *")
     print("* make_netinst_iso                *")
     print("* make_iso_everysrc               *")
     print("* make_iso_everything             *")

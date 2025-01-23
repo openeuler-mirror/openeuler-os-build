@@ -67,4 +67,14 @@ gpgcheck=0
 
 EOF
 
+if [ -n "${THIRD_REPO}" ];then
+    cat>>${REPO_CONF}<<-EOF1
+[THIRD_REPO]
+name=THIRD_REPO
+baseurl=${THIRD_REPO}
+enabled=1
+gpgcheck=0
+
+EOF1
+fi
 cat ${REPO_CONF}

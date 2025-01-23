@@ -40,7 +40,7 @@ function usage()
     echo "$(basename $0) [script_name|all]"
 }
 
-export ALL_SCRIPT=('make_hmi' 'make_iso' 'make_docker_image' 'make_raspi_image' 'make_riscv64_qemu_image' 'make_microvm_image' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso' 'make_riscv64_image')
+export ALL_SCRIPT=('make_hmi' 'make_iso' 'make_docker_image' 'make_raspi_image' 'make_riscv64_qemu_image' 'make_microvm_image' 'make_iso_everything' 'make_iso_everysrc' 'make_debug_everything' 'make_netinst_iso' 'get_epol_rpms' 'make_edge_iso' 'make_desktop_iso' 'make_riscv64_image' 'make_devstation_iso' 'make_devstation_netinst_iso')
 [[ "${DEBUG}" -eq 1 ]] && set -x
 
 arg1="$1"
