@@ -105,3 +105,5 @@ source "${BUILD_SCRIPT_DIR}"/step/make_desktop_iso.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_debug_everything.sh
 source "${BUILD_SCRIPT_DIR}"/step/make_iso_everysrc.sh
+source "${BUILD_SCRIPT_DIR}"/step/make_devstation_iso.sh
+source "${BUILD_SCRIPT_DIR}"/step/make_devstation_netinst_iso.sh
