@@ -14,3 +14,11 @@ haoc-kernel-source
 haoc-kernel-devel
 haoc-kernel-headers
 haoc-kernel-debugsource
+kernel-extra-modules
+vk-kernel
+vk-kernel-devel
+vk-kernel-headers
+vk-kernel-source
+vk-kernel-tools
+vk-kernel-tools-devel
+vk-kernel-debugsource
