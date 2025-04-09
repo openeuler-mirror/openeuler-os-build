@@ -55,22 +55,16 @@ def download_withfile(args, obsClient, name, localfile):
         print(traceback.format_exc())
         sys.exit(1)
 
-def download_xmlfile(args, cvrf_path, obsClient):
+def download_cve_xmlfile(args, cvrf_path, obsClient):
     """
-    downloads cve xml file
+    downloads cve and hotpatch xml file
     """
-    update_path = os.path.join(cvrf_path, "update_fixed.txt")
-    
-    bugfix_cvrf = os.path.join(os.getcwd(), os.path.join("bugFix", "cvrf"))
-    if os.path.exists(bugfix_cvrf):
-        shutil.rmtree(bugfix_cvrf)
-    os.makedirs(bugfix_cvrf)
-    
     hotpatch_cvrf = os.path.join(os.getcwd(), "hotpatch_cvrf")
     if os.path.exists(hotpatch_cvrf):
         shutil.rmtree(hotpatch_cvrf)
     os.makedirs(hotpatch_cvrf)
 
+    update_path = os.path.join(cvrf_path, "update_fixed.txt")
     if os.path.exists(update_path):
         if os.path.getsize(update_path):
             with open(update_path, "r") as f:
@@ -85,16 +79,41 @@ def download_xmlfile(args, cvrf_path, obsClient):
                     elif "openEuler-SA" in line:
                         year_path = os.path.join(cvrf_path, year)
                         localfile = os.path.join(cvrf_path, line)
-                    elif "openEuler-BA" in line:
-                        year_path = os.path.join(bugfix_cvrf, year)
-                        localfile = os.path.join(bugfix_cvrf, line)
                     else:
-                        print("There are some problems in the update_fixed.txt file.")
-                        sys.exit(1)
+                        return -2
 
                     if not os.path.exists(year_path):
                         os.makedirs(year_path)
                     name = os.path.join("cvrf", line)
+                    createFile(localfile)
+                    download_withfile(args, obsClient, name, localfile)
+        else:
+            return -1
+    else:
+        return -1
+
+def download_bugfix_xmlfile(args, cvrf_path, obsClient):
+    """
+    downloads bugfix xml file
+    """
+    update_path = os.path.join(cvrf_path, "update_defect.txt")
+    if os.path.exists(update_path):
+        if os.path.getsize(update_path):
+            with open(update_path, "r") as f:
+                filemsg = f.readlines()
+            for line in filemsg:
+                if line:
+                    line = line.replace('\n', '')
+                    year = line.split('/')[0]
+                    if "openEuler-BA" in line:
+                        year_path = os.path.join(cvrf_path, year)
+                        localfile = os.path.join(cvrf_path, line)
+                    else:
+                        return -2
+
+                    if not os.path.exists(year_path):
+                        os.makedirs(year_path)
+                    name = os.path.join("defect", line)
                     createFile(localfile)
                     download_withfile(args, obsClient, name, localfile)
         else:
@@ -107,7 +126,6 @@ def download_csaffile(args, csaf_path, obsClient, dir_name):
     downloads csaf file
     """
     update_path = os.path.join(csaf_path, "update_fixed.txt")
-    
     if os.path.exists(update_path):
         if os.path.getsize(update_path):
             with open(update_path, "r") as f:
@@ -136,10 +154,11 @@ def upload_xml_file(args, uploadfile, cvrf_name):
     print("Uploading xml file to publish server.")
     if cvrf_name == "SA" or cvrf_name == "HotPatchSA":
         dest_dir = "/repo/openeuler/security/data/"
-    elif cvrf_name == "BA":
+    elif cvrf_name == "bugfix":
         dest_dir = "/repo/openeuler/bugFix/data/"
     else:
         dest_dir = "/repo/openeuler/security/data/csaf/"
+
     cmd = "ssh -i %s -o StrictHostKeyChecking=no root@%s 'if [ ! -d %s ];then mkdir -p %s;fi'" % (args.sshkey, args.ipadd, dest_dir, dest_dir)
     if os.system(cmd) != 0:
         print("Fail to create directory:%s" % dest_dir)
@@ -200,40 +219,36 @@ def update_cve(args):
         name = os.path.join("cvrf", name)
         download_withfile(args, obsClient, name, localfile)
     
-    ret = download_xmlfile(args, cvrf_path, obsClient)
+    ret = download_cve_xmlfile(args, cvrf_path, obsClient)
     update_path = os.path.join(cvrf_path, "update_fixed.txt")
     if os.path.exists(update_path):
         os.remove(update_path)
     
     if ret == -1:
         print("Nothing to update !")
+    elif ret == -2:
+        print("There are some problems in the update_fixed.txt file.")
+        sys.exit(1)
     else:
         all_index_txt = os.path.join(os.getcwd(), "index.txt")
         cvrf_index_txt = os.path.join(cvrf_path, "index.txt")
         shutil.copy(cvrf_index_txt, all_index_txt)
         hotpatch_path = os.path.join(os.getcwd(), "hotpatch_cvrf")
         hotpatch_index_txt = os.path.join(hotpatch_path, "index.txt")
-        bugfix_path = os.path.join(os.getcwd(), os.path.join("bugFix", "cvrf"))
-        bugfix_index_txt = os.path.join(bugfix_path, "index.txt")
         f_all = open(all_index_txt, "r")
         f_sa = open(cvrf_index_txt, "w")
         f_hotpatch = open(hotpatch_index_txt, "w")
-        f_bugfix = open(bugfix_index_txt, "w")
         for line in f_all:
             if line:
                 if "openEuler-HotPatchSA" in line:
                     f_hotpatch.write(line)
                 elif "openEuler-SA" in line:
                     f_sa.write(line)
-                elif "openEuler-BA" in line:
-                    f_bugfix.write(line)
         f_all.close()
         f_sa.close()
         f_hotpatch.close()
-        f_bugfix.close()
         upload_xml_file(args, cvrf_path, "SA")
         upload_xml_file(args, hotpatch_path, "HotPatchSA")
-        upload_xml_file(args, bugfix_path, "BA")
 
 def update_repo(args):
     """
@@ -302,3 +317,33 @@ def update_csaf(args):
             print("dir %s Nothing to update !" % dir_name)
         else:
             upload_xml_file(args, csaf_path, dir_name)
+
+def update_bugfix(args):
+    """
+    update bugfix file
+    """
+    cvrf_path = os.path.join(os.getcwd(), "cvrf")
+    if os.path.exists(cvrf_path):
+        shutil.rmtree(cvrf_path)
+    os.makedirs(cvrf_path)
+
+    for name in args.filename.split(','):
+        localfile = os.path.join(cvrf_path, name)
+        createFile(localfile)
+        obsClient = construct_obsClient(args)
+        name = os.path.join("defect", name)
+        download_withfile(args, obsClient, name, localfile)
+
+    ret = download_bugfix_xmlfile(args, cvrf_path, obsClient)
+    update_path = os.path.join(cvrf_path, "update_defect.txt")
+    if os.path.exists(update_path):
+        os.remove(update_path)
+
+    if ret == -1:
+        print("Nothing to update !")
+    elif ret == -2:
+        print("There are some problems in the update_defect.txt file.")
+        sys.exit(1)
+    else:
+        cvrf_index_txt = os.path.join(cvrf_path, "index_defect.txt")
+        upload_xml_file(args, cvrf_path, "bugfix")
