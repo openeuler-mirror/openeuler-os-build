@@ -23,10 +23,11 @@ import argparse
 from update_repodata import update_cve
 from update_repodata import update_repo
 from update_repodata import update_csaf
+from update_repodata import update_bugfix
 
 par = argparse.ArgumentParser()
 par.add_argument("-f", "--flag", default=None,
-        help="cve or updateinfo or hotpatch", required=True)
+        help="cve or csaf or updateinfo or updateinfo-hotpatch or bugfix", required=True)
 par.add_argument("-ak", "--AK", default=None,
         help="Access Key", required=True)
 par.add_argument("-sk", "--SK", default=None,
@@ -50,6 +51,8 @@ if __name__ == '__main__':
         update_csaf(args)
     elif args.flag == "updateinfo" or args.flag == "updateinfo-hotpatch":
         update_repo(args)
+    elif args.flag == "bugfix":
+        update_bugfix(args)
     else:
-        print("The flag include cve, updateinfo and hotpatch.")
+        print("The flag include cve, csaf, updateinfo, updateinfo-hotpatch and bugfix.")
         sys.exit(1)
