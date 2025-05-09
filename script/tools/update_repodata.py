@@ -121,6 +121,28 @@ def download_bugfix_xmlfile(args, cvrf_path, obsClient):
     else:
         return -1
 
+def download_osv_jsonfile(args, osv_path, obsClient):
+    """
+    downloads osv json file
+    """
+    update_path = os.path.join(osv_path, "update_osv.txt")
+    if os.path.exists(update_path):
+        if os.path.getsize(update_path):
+            with open(update_path, "r") as f:
+                filemsg = f.readlines()
+            for line in filemsg:
+                if line:
+                    line = line.replace('\n', '')
+                    localfile = os.path.join(osv_path, line)
+
+                    name = os.path.join("osv/advisories", line)
+                    createFile(localfile)
+                    download_withfile(args, obsClient, name, localfile)
+        else:
+            return -1
+    else:
+        return -1
+
 def download_csaffile(args, csaf_path, obsClient, dir_name):
     """
     downloads csaf file
@@ -152,7 +174,7 @@ def upload_xml_file(args, uploadfile, cvrf_name):
     upload xml files to publish server
     """
     print("Uploading xml file to publish server.")
-    if cvrf_name == "SA" or cvrf_name == "HotPatchSA":
+    if cvrf_name == "SA" or cvrf_name == "HotPatchSA" or cvrf_name == "osv":
         dest_dir = "/repo/openeuler/security/data/"
     elif cvrf_name == "bugfix":
         dest_dir = "/repo/openeuler/bugFix/data/"
@@ -347,3 +369,32 @@ def update_bugfix(args):
     else:
         cvrf_index_txt = os.path.join(cvrf_path, "index_defect.txt")
         upload_xml_file(args, cvrf_path, "bugfix")
+
+def update_osv(args):
+    """
+    update osv file
+    """
+    osv_path = os.path.join(os.getcwd(), "osv")
+    if os.path.exists(osv_path):
+        shutil.rmtree(osv_path)
+    os.makedirs(osv_path)
+
+    for name in args.filename.split(','):
+        localfile = os.path.join(osv_path, name)
+        createFile(localfile)
+        obsClient = construct_obsClient(args)
+        name = os.path.join("osv/advisories", name)
+        download_withfile(args, obsClient, name, localfile)
+
+    ret = download_osv_jsonfile(args, osv_path, obsClient)
+    update_path = os.path.join(osv_path, "update_osv.txt")
+    if os.path.exists(update_path):
+        os.remove(update_path)
+
+    if ret == -1:
+        print("Nothing to update !")
+    elif ret == -2:
+        print("There are some problems in the update_osv.txt file.")
+        sys.exit(1)
+    else:
+        upload_xml_file(args, osv_path, "osv")
