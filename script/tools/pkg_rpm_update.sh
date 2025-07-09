@@ -597,7 +597,6 @@ function main() {
 		save_pkg_commits
 	elif [ ${action} == "release" ];then
 		release_rpm
-		update_repodata ${source_ip} ${backup_path}
 		update_repodata ${release_ip} ${release_path}
 		update_json_file
 	else
