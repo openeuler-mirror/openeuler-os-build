@@ -167,10 +167,9 @@ make_img(){
     pwd
     yum install dosfstools parted rsync -y -c "${yum_conf}"
     dd if=/dev/zero of=${img_file} bs=1MiB count=$size && sync
-    parted ${img_file} mklabel msdos mkpart primary fat32 8192s 593919s
+    parted ${img_file} mklabel msdos mkpart primary fat32 16384s 1064959s
     parted ${img_file} -s set 1 boot
-    parted ${img_file} mkpart primary linux-swap 593920s 1593343s 
-    parted ${img_file} mkpart primary ext4 1593344s 100%
+    parted ${img_file} mkpart primary ext4 1064960s 100%
     device=`losetup -f --show -P ${img_file}`
     LOG "after losetup: ${device}"
     trap 'LOSETUP_D_IMG' EXIT
@@ -181,30 +180,27 @@ make_img(){
     loopX=${device##*\/}
     partprobe ${device}
     bootp=/dev/mapper/${loopX}p1
-    swapp=/dev/mapper/${loopX}p2
-    rootp=/dev/mapper/${loopX}p3
+    rootp=/dev/mapper/${loopX}p2
     LOG "bootp: " ${bootp} "rootp: " ${rootp}
     mkfs.vfat -n boot ${bootp}
-    mkswap ${swapp} --pagesize 4096
     mkfs.ext4 ${rootp}
     mkdir -p ${root_mnt} ${boot_mnt}
     mount -t vfat -o uid=root,gid=root,umask=0000 ${bootp} ${boot_mnt}
     mount -t ext4 ${rootp} ${root_mnt}
-    prefix_len=${#loopX}
-    let prefix_len=prefix_len+13
-    fstab_array=("" "" "" "")
-    for line in `blkid | grep /dev/mapper/${loopX}p`
-    do
-        partuuid=${line#*PARTUUID=\"}
-        fstab_array[${line:$prefix_len:1}]=${partuuid%%\"*}
-    done
-    echo "PARTUUID=${fstab_array[3]}  / ext4    defaults,noatime 0 0" > ${rootfs_dir}/etc/fstab
-    echo "PARTUUID=${fstab_array[1]}  /boot vfat    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
-    echo "PARTUUID=${fstab_array[2]}  swap swap    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
+
+    blk_root=$(blkid | grep $rootp)
+    partuuid_root=${blk_root#*PARTUUID=\"}
+    partuuid_root=${partuuid_root%%\"*}
+    blk_boot=$(blkid | grep $bootp)
+    partuuid_boot=${blk_boot#*PARTUUID=\"}
+    partuuid_boot=${partuuid_boot%%\"*}
+
+    echo "PARTUUID=${partuuid_root}  / ext4    defaults,noatime 0 0" > ${rootfs_dir}/etc/fstab
+    echo "PARTUUID=${partuuid_boot}  /boot vfat    defaults,noatime 0 0" >> ${rootfs_dir}/etc/fstab
 
     cp -a ${rootfs_dir}/boot/* ${boot_mnt}/
     cp ${euler_dir}/config.txt ${boot_mnt}/
-    echo "console=serial0,115200 console=tty1 root=PARTUUID=${fstab_array[3]} rootfstype=ext4 elevator=deadline rootwait net.ifnames=0" > ${boot_mnt}/cmdline.txt
+    echo "console=serial0,115200 console=tty1 root=PARTUUID=${partuuid_root} rootfstype=ext4 elevator=deadline rootwait net.ifnames=0" > ${boot_mnt}/cmdline.txt
 
     rm -rf ${rootfs_dir}/boot
     rsync -avHAXq ${rootfs_dir}/* ${root_mnt}
