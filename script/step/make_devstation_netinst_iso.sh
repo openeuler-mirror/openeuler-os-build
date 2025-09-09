@@ -27,10 +27,20 @@ function make_devstation_netinst_iso_inchroot()
     TIME_DIR="${release_dir#${HTTP_DIR}}"
     TIME=${TIME_DIR##*/}
     TIME=${TIME#"${version}"-}
+    TMP_OEMAKER="/opt/oemaker"
 
     yum_conf="${BUILD_SCRIPT_DIR}/config/repo_conf/repofile.conf"
     yum clean all -c "${yum_conf}"
-    yum remove -y oemaker lorax || true
+    echo "start remove/rpm -e oemaker and lorax"
+    if yum remove -y oemaker lorax;then
+       echo "yum remove success"
+    else
+       if rpm -e --nodeps oemaker lorax;then
+          rm -rf "${TMP_OEMAKER}"
+          echo "rpm -e success"
+       fi
+    fi
+
     yum install -y oemaker lorax -c "${yum_conf}"
     
     # 配置 repo 源
