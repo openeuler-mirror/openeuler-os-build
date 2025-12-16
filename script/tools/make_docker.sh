@@ -52,7 +52,10 @@ function make_image()
 	version_time="openeuler-$(date +%Y-%m-%d-%H-%M-%S)"
 	sed -i "s#IMAGE_NAME#${version_time}#" "${docker_config}/config.xml"
 	sed -i 's/container=.*>/container=\"'${branch}'\">/g' "${docker_config}/config.xml"
-	sed -i "/obs_repo_here/a <repository type=\"rpm-md\"><source path=\"${repo_url}\" \/></repository>" "${docker_config}/config.xml"
+	for repo in ${repo_url[@]}
+	do
+		sed -i "/obs_repo_here/a <repository type=\"rpm-md\"><source path=\"${repo}\" \/></repository>" "${docker_config}/config.xml"
+	done
 	sed -i "/exit/i python3 -c \"import pathlib;import shutil;[shutil.rmtree(p) for p in pathlib.Path('/').rglob('__pycache__')]\"" "${docker_config}/images.sh"
 	cp "${docker_config}/config.xml" "${cfg_dir}"
 	cp "${docker_config}/images.sh" "${cfg_dir}"
