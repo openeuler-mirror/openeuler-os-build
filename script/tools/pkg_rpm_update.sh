@@ -176,6 +176,10 @@ function save_pkg_commits(){
 
 # save pkg rpm info file
 function save_csv_file() {
+	local suffix="$1"
+    local csv_file_name="${2}${suffix:+_$suffix}.csv"
+    local csv_file_path="${3}/${csv_file_name}"
+
 	cmd="if [ ! -f ${csv_file_path} ];then touch ${csv_file_path};fi"
 	ssh_cmd ${source_ip} "${cmd}"
 	rm -f ${csv_file_name}
@@ -574,14 +578,16 @@ function main() {
 	if [ ${action} == "create" ];then
 		copy_rpm
 		update_json_file
-		save_csv_file
+		save_csv_file "${action}" "${branch}" "${update_path}"
+		save_csv_file "" "${branch}" "${update_path}"
 		check_update_rpm
 		remove_published_rpm
 		update_repodata ${source_ip} ${update_path}
 		save_pkg_commits
 	elif [ ${action} == "update" ];then
 		update_rpm
-		save_csv_file
+		save_csv_file "${action}" "${branch}" "${update_path}"
+		save_csv_file "" "${branch}" "${update_path}"
 		check_update_rpm
 		remove_published_rpm
 		update_repodata ${source_ip} ${update_path}
@@ -592,11 +598,13 @@ function main() {
 	elif [ ${action} == "del_pkg_rpm" ];then
 		del_pkg_rpm
 		check_update_rpm
-		save_csv_file
+		save_csv_file "${action}" "${branch}" "${update_path}"
+		save_csv_file "" "${branch}" "${update_path}"
 		update_repodata ${source_ip} ${update_path}
 		save_pkg_commits
 	elif [ ${action} == "release" ];then
 		release_rpm
+		save_csv_file "${action}" "${branch}" "${update_path}"
 		update_repodata ${release_ip} ${release_path}
 		update_json_file
 	else
