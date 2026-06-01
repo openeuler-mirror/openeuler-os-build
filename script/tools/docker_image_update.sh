@@ -153,6 +153,24 @@ function release() {
 			rm -rf ${ar}
 		fi
 	done
+
+	for ar in ${extra_arch_list[@]}
+    do
+		# release docker image to website
+		cmd="if [ ! -d ${release_path} ];then mkdir -p ${release_path};fi"
+		ssh_cmd ${release_ip} "${cmd}"
+		rm -rf ${ar}
+		scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -r root@${source_ip}:${update_path}/${ar} ./
+		result=$(find ./${ar} -name "openEuler-docker.${ar}.tar.xz*" -type f)
+		if [ -z "${result}" ];then
+			echo "Error: there is no docker image file in directory ${update_path}/${ar}."
+			continue
+		else
+			scp -i ${publish_key} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -r ./${ar} root@${release_ip}:${release_path}/
+			rm -rf ${ar}
+		fi
+    done
+
 }
 
 # link latest date dir
@@ -187,6 +205,7 @@ function main() {
 	fi
 
 	arch_list=(aarch64 x86_64)
+	extra_arch_list=(loongarch64)
 	need_modify_json=(create delete_update_dir release)
 
 	if [[ ${branch_name} =~ "EBS-" ]];then
@@ -202,6 +221,9 @@ function main() {
 	release_path="${docker_update_path}/${date_str}"
 	ARCH=$(arch)
 	export repo_url="https://repo.openeuler.openatom.cn/${branch_name}/everything/${ARCH} https://repo.openeuler.openatom.cn/${branch_name}/update/${ARCH}"
+	if [ ${ARCH} == "loongarch64" ];then
+		export repo_url=
+	fi
 
 	if [ ${operation} == "create" ];then
 		create
