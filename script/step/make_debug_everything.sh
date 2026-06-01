@@ -39,12 +39,13 @@ function make_debug_everything_inchroot()
 
     yum install oemaker lorax -y -c "${yum_conf}"
     cd /opt/oemaker
+    REPOS=`echo "${STANDARD_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
 
     set +e
     num=0
     while [ "${num}" -lt 3 ]
     do
-        bash -x oemaker -t everything_debug -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${STANDARD_PROJECT_REPO}"
+        bash -x oemaker -t everything_debug -p ${PRODUCTS} -v "${OS_VERSION}" -r "" -s "${REPOS}"
         if [ $? -eq 0 ];then
             break
         elif [ $? -eq 133 ]; then
