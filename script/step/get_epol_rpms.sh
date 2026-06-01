@@ -83,6 +83,9 @@ function get_epol_rpms_inchroot()
     done
     rm -rf ${tmp_dir}/Packages/var
 
+    export LANG=en_US.UTF-8
+ 	export LC_ALL=en_US.UTF-8
+
     check_rpm_sign ${tmp_dir}
     createrepo -d ${tmp_dir}
     sshscp "${tmp_dir}" "${RELEASE_DIR}/main/"

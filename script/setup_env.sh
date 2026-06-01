@@ -13,7 +13,7 @@ export OS_VERSION="$(echo ${tmp//:/-})"
 export SHA256SUM=".sha256sum"
 export OPENEULER_CHROOT_PATH="/usr1/openeuler"
 
-export RELEASE_SERVER_IP="172.16.1.236"
+export RELEASE_SERVER_IP="172.16.1.43"
 export RELEASE_SERVER_PORT="30322"
 if [[ ${ARCH} == "loongarch64" ]] || [[ ${ARCH} == "ppc64le" ]];then
     export RELEASE_SERVER_IP="121.36.84.172"
