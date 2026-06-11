@@ -2,6 +2,8 @@ pipeline {
     agent { label 'k8s-x86-openeuler-cbs' }
 
     parameters {
+        string(name: 'PROJECT_NAME', defaultValue: 'openEuler-24.03-LTS-SP4', description: '工程名（自动拼接 :everything / :epol）')
+        string(name: 'BUILD_TYPE', defaultValue: 'incremental', description: '构建类型( full / incremental )')
         booleanParam(name: 'SKIP_EVERYTHING', defaultValue: false, description: '跳过 everything 工程构建与监控')
         booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
         booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
