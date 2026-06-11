@@ -1,8 +1,19 @@
 pipeline {
     agent { label 'k8s-x86-openeuler-cbs' }
 
+    parameters {
+        string(name: 'PROJECT_NAME', defaultValue: 'openEuler-24.03-LTS-SP4', description: '工程名（自动拼接 :everything / :epol）')
+        choice(name: 'BUILD_TYPE', choices: ['incremental', 'full'], description: '构建类型')
+        booleanParam(name: 'SKIP_EVERYTHING', defaultValue: false, description: '跳过 everything 工程构建与监控')
+        booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
+        booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
+        booleanParam(name: 'SKIP_OTHER', defaultValue: false, description: '跳过其他镜像构建（QCOW2/AMI/Docker 等）')
+    }
+
     environment {
         CCB_HOME = '/home/jenkins/ccb1'
+        CCB_GATEWAY_HOST = '172.16.9.179'
+        CCB_GATEWAY_PORT = '30108'
     }
 
     stages {
@@ -23,14 +34,14 @@ pipeline {
                         sh """
                             mkdir -p ~/.config/cli/defaults
                             cat > ~/.config/cli/defaults/config.yaml <<ENDOFFILE
-SRV_HTTP_REPOSITORIES_HOST: 172.16.9.179
-SRV_HTTP_REPOSITORIES_PORT: 30108
+SRV_HTTP_REPOSITORIES_HOST: ${CCB_GATEWAY_HOST}
+SRV_HTTP_REPOSITORIES_PORT: ${CCB_GATEWAY_PORT}
 SRV_HTTP_REPOSITORIES_PROTOCOL: http://
-SRV_HTTP_RESULT_HOST: 172.16.9.179
-SRV_HTTP_RESULT_PORT: 30108
+SRV_HTTP_RESULT_HOST: ${CCB_GATEWAY_HOST}
+SRV_HTTP_RESULT_PORT: ${CCB_GATEWAY_PORT}
 SRV_HTTP_RESULT_PROTOCOL: http://
-GATEWAY_IP: 172.16.9.179
-GATEWAY_PORT: 30108
+GATEWAY_IP: ${CCB_GATEWAY_HOST}
+GATEWAY_PORT: ${CCB_GATEWAY_PORT}
 ACCOUNT: eulermaker
 PASSWORD: ${OAUTH_PWD}
 OAUTH_TOKEN_URL: "https://omapi.osinfra.cn/oneid/oidc/token"
@@ -65,6 +76,7 @@ ENDOFFILE
         // Step 2: 第一个工程构建 + 监控 (6h 超时)
         // ============================================
         stage('触发everything工程构建') {
+            when { expression { !params.SKIP_EVERYTHING } }
             steps {
                 script {
                     def project = "${params.PROJECT_NAME}:everything"
@@ -79,6 +91,7 @@ ENDOFFILE
         }
 
         stage('监控everything工程 (6h 超时)') {
+            when { expression { !params.SKIP_EVERYTHING } }
             options {
                 timeout(time: 6, unit: 'HOURS')
             }
@@ -90,7 +103,11 @@ ENDOFFILE
                         waitForBuild(buildIds: buildIds, pollInterval: 10)
                         echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                        if (e.isExceededTimeout()) {
+                            echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                        } else {
+                            throw e
+                        }
                     }
                 }
             }
@@ -100,24 +117,33 @@ ENDOFFILE
         // Step 3: 触发第二个 ccb build + check_install（并行）
         // ============================================
         stage('触发epol工程 & 制作ISO镜像') {
+            when { expression { !params.SKIP_EPOL || !params.SKIP_ISO } }
             steps {
                 script {
                     def project = "${params.PROJECT_NAME}:epol"
-                    echo "========== 触发 ccb build ${project} + check_install =========="
+                    echo "========== 触发 ccb build ${project} + ISO 构建 =========="
 
                     parallel(
                         '触发epol工程构建': {
-                            def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
-                            env.BUILD_IDS_2 = buildIds.join(',')
-                            echo "${project} 构建已触发, build_ids: ${env.BUILD_IDS_2}"
+                            if (params.SKIP_EPOL) {
+                                echo "跳过 epol 工程构建"
+                            } else {
+                                def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
+                                env.BUILD_IDS_2 = buildIds.join(',')
+                                echo "${project} 构建已触发, build_ids: ${env.BUILD_IDS_2}"
+                            }
                         },
                         '触发ISO构建': {
-                            build(
-                                job: '${params.PROJECT_NAME}-EBS-ISO',
-                                propagate: false,
-                                wait: false
-                            )
-                            echo "${params.PROJECT_NAME}-EBS-ISO 已触发"
+                            if (params.SKIP_ISO) {
+                                echo "跳过 ISO 镜像构建"
+                            } else {
+                                build(
+                                    job: "${params.PROJECT_NAME}-EBS-ISO",
+                                    propagate: false,
+                                    wait: true
+                                )
+                                echo "${params.PROJECT_NAME}-EBS-ISO 已触发"
+                            }
                         }
                     )
                 }
@@ -128,6 +154,7 @@ ENDOFFILE
         // Step 4: 监控第二个工程 (4h 超时)
         // ============================================
         stage('监控epol工程 (4h 超时)') {
+            when { expression { !params.SKIP_EPOL } }
             options {
                 timeout(time: 4, unit: 'HOURS')
             }
@@ -139,7 +166,11 @@ ENDOFFILE
                         waitForBuild(buildIds: buildIds, pollInterval: 10)
                         echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        echo "⚠️ epol工程监控超时 (4h)，继续下一步"
+                        if (e.isExceededTimeout()) {
+                            echo "⚠️ epol工程监控超时 (4h)，继续下一步"
+                        } else {
+                            throw e
+                        }
                     }
                 }
             }
@@ -149,17 +180,24 @@ ENDOFFILE
         // Step 5: 触发 make_iso
         // ============================================
         stage('触发其他镜像构建') {
+            when { expression { !params.SKIP_OTHER } }
             steps {
                 script {
                     echo "========== 触发 ${params.PROJECT_NAME}-EBS-OTHER 流水线 =========="
                     build(
-                        job: '${params.PROJECT_NAME}-EBS-OTHER',
+                        job: "${params.PROJECT_NAME}-EBS-OTHER",
                         propagate: false,
-                        wait: false
+                        wait: true
                     )
                     echo "✅ ${params.PROJECT_NAME}-EBS-OTHER 已触发"
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f ~/.config/cli/defaults/config.yaml'
         }
     }
 }
