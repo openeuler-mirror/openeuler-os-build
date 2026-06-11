@@ -1,0 +1,261 @@
+pipeline {
+    agent { label 'k8s-x86-openeuler-cbs' }
+
+    environment {
+        CCB_HOME = '/home/jenkins/ccb1'
+    }
+
+    stages {
+        // ============================================
+        // Step 1: 初始化 CCB 环境
+        // ============================================
+        stage('初始化 CCB 环境') {
+            steps {
+                script {
+                    withCredentials([
+                        string(
+                            credentialsId: 'OAUTH_PWD',
+                            variable: 'OAUTH_PWD'
+                        )
+                    ]) {
+                        echo "========== 初始化 CCB =========="
+
+                        sh """
+                            mkdir -p ~/.config/cli/defaults
+                            cat > ~/.config/cli/defaults/config.yaml <<ENDOFFILE
+SRV_HTTP_REPOSITORIES_HOST: 172.16.9.179
+SRV_HTTP_REPOSITORIES_PORT: 30108
+SRV_HTTP_REPOSITORIES_PROTOCOL: http://
+SRV_HTTP_RESULT_HOST: 172.16.9.179
+SRV_HTTP_RESULT_PORT: 30108
+SRV_HTTP_RESULT_PROTOCOL: http://
+GATEWAY_IP: 172.16.9.179
+GATEWAY_PORT: 30108
+ACCOUNT: eulermaker
+PASSWORD: ${OAUTH_PWD}
+OAUTH_TOKEN_URL: "https://omapi.osinfra.cn/oneid/oidc/token"
+OAUTH_REDIRECT_URL: "http://eulermaker.openeuler.openatom.cn/oauth/"
+PUBLIC_KEY_URL: "https://omapi.osinfra.cn/oneid/public/key?community=openeuler"
+ENDOFFILE
+
+                            source \$HOME/.\${SHELL##*/}rc &>/dev/null
+                        """
+
+                        sh '''
+                            ccb_test=/home/jenkins/ccb1
+                            rm -rf ${ccb_test}
+                            mkdir -p ${ccb_test}
+                            git clone https://atomgit.com/openeuler/ccb.git ${ccb_test}
+                        '''
+
+                        def check = sh(
+                            script: "${CCB_HOME}/sbin/cli/ccb -h &>/dev/null",
+                            returnStatus: true
+                        )
+                        if (check != 0) {
+                            error("ccb command is bad!")
+                        }
+                        echo "ccb command is ok!"
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Step 2: 第一个工程构建 + 监控 (6h 超时)
+        // ============================================
+        stage('触发everything工程构建') {
+            steps {
+                script {
+                    def project = "${params.PROJECT_NAME}:everything"
+                    echo "========== ccb build ${project} =========="
+
+                    // 现在返回的是 build_id 列表
+                    def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
+                    env.BUILD_IDS_1 = buildIds.join(',')
+                    echo "构建已触发, build_ids: ${env.BUILD_IDS_1}"
+                }
+            }
+        }
+
+        stage('监控everything工程 (6h 超时)') {
+            options {
+                timeout(time: 6, unit: 'HOURS')
+            }
+            steps {
+                script {
+                    try {
+                        def buildIds = env.BUILD_IDS_1.split(',')
+                        echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
+                        waitForBuild(buildIds: buildIds, pollInterval: 10)
+                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Step 3: 触发第二个 ccb build + check_install（并行）
+        // ============================================
+        stage('触发epol工程 & 制作ISO镜像') {
+            steps {
+                script {
+                    def project = "${params.PROJECT_NAME}:epol"
+                    echo "========== 触发 ccb build ${project} + check_install =========="
+
+                    parallel(
+                        '触发epol工程构建': {
+                            def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
+                            env.BUILD_IDS_2 = buildIds.join(',')
+                            echo "${project} 构建已触发, build_ids: ${env.BUILD_IDS_2}"
+                        },
+                        '触发ISO构建': {
+                            build(
+                                job: '${params.PROJECT_NAME}-EBS-ISO',
+                                propagate: false,
+                                wait: false
+                            )
+                            echo "${params.PROJECT_NAME}-EBS-ISO 已触发"
+                        }
+                    )
+                }
+            }
+        }
+
+        // ============================================
+        // Step 4: 监控第二个工程 (4h 超时)
+        // ============================================
+        stage('监控epol工程 (4h 超时)') {
+            options {
+                timeout(time: 4, unit: 'HOURS')
+            }
+            steps {
+                script {
+                    try {
+                        def buildIds = env.BUILD_IDS_2.split(',')
+                        echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
+                        waitForBuild(buildIds: buildIds, pollInterval: 10)
+                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        echo "⚠️ epol工程监控超时 (4h)，继续下一步"
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Step 5: 触发 make_iso
+        // ============================================
+        stage('触发其他镜像构建') {
+            steps {
+                script {
+                    echo "========== 触发 ${params.PROJECT_NAME}-EBS-OTHER 流水线 =========="
+                    build(
+                        job: '${params.PROJECT_NAME}-EBS-OTHER',
+                        propagate: false,
+                        wait: false
+                    )
+                    echo "✅ ${params.PROJECT_NAME}-EBS-OTHER 已触发"
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// 辅助函数：触发构建，返回 build_id 列表
+// ============================================================
+def triggerBuild(Map args) {
+    def cmd = "${CCB_HOME}/sbin/cli/ccb build os_project=${args.project} build_type=${args.buildType}"
+
+    echo "执行: ${cmd}"
+    def output = sh(script: cmd, returnStdout: true).trim()
+    echo "返回: ${output}"
+
+    def json = readJSON(text: output)
+    // 获取所有 build_id（data 的所有 key）
+    return json.data.keySet().toList()
+}
+
+// ============================================================
+// 辅助函数：轮询等待多个构建都结束（只判断项目状态）
+// ============================================================
+def waitForBuild(Map args) {
+    def buildIds = args.buildIds
+    def pollInterval = args.pollInterval
+
+    def projectStatusStop = [201, 202, 203, 205]
+
+    while (true) {
+        sleep(pollInterval)
+
+        def allFinished = true
+
+        // 检查每个 build_id
+        for (def buildId in buildIds) {
+            def output = sh(
+                script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
+                returnStdout: true
+            ).trim()
+
+            try {
+                // select 返回的直接是数组，不是 {"data": ...}
+                def json = readJSON(text: output)
+
+                if (!json || json.isEmpty()) {
+                    echo "build_id ${buildId}: 没有找到数据，继续等待"
+                    allFinished = false
+                    continue
+                }
+
+                json.each { item ->
+                    if (!item) {
+                        echo "build_id ${buildId}: 空的条目，继续等待"
+                        allFinished = false
+                        return
+                    }
+                    if (!item._source) {
+                        echo "build_id ${buildId}: 没有 _source 字段，继续等待"
+                        allFinished = false
+                        return
+                    }
+                    def projStatus = item._source?.status
+                    if (projStatus != null && !(projStatus in projectStatusStop)) {
+                        allFinished = false
+                    }
+                }
+            } catch (Exception e) {
+                echo "查询异常 (buildId: ${buildId}): ${e.message}"
+                allFinished = false
+            }
+        }
+
+        // 如果都结束了，打印每个的状态然后退出
+        if (allFinished) {
+            echo "所有构建结束"
+            for (def buildId in buildIds) {
+                def output = sh(
+                    script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
+                    returnStdout: true
+                ).trim()
+                try {
+                    def json = readJSON(text: output)
+                    if (json) {
+                        json.each { item ->
+                            if (item?._source) {
+                                echo "build_id ${buildId}: 项目状态: ${item._source?.status}"
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
+                }
+            }
+            return
+        }
+
+        echo "构建中..."
+    }
+}
