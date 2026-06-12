@@ -105,6 +105,7 @@ ENDOFFILE
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
                         if (e.isExceededTimeout()) {
                             echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                            currentBuild.result = null
                         } else {
                             throw e
                         }
@@ -168,6 +169,7 @@ ENDOFFILE
                     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
                         if (e.isExceededTimeout()) {
                             echo "⚠️ epol工程监控超时 (4h)，继续下一步"
+                            currentBuild.result = null
                         } else {
                             throw e
                         }
@@ -225,13 +227,15 @@ def waitForBuild(Map args) {
     def pollInterval = args.pollInterval
 
     def projectStatusStop = [201, 202, 203, 205]
+    def startTime = System.currentTimeMillis()
+    def iteration = 0
 
     while (true) {
         sleep(pollInterval)
+        iteration++
 
         def allFinished = true
 
-        // 检查每个 build_id
         for (def buildId in buildIds) {
             def output = sh(
                 script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -239,23 +243,15 @@ def waitForBuild(Map args) {
             ).trim()
 
             try {
-                // select 返回的直接是数组，不是 {"data": ...}
                 def json = readJSON(text: output)
 
                 if (!json || json.isEmpty()) {
-                    echo "build_id ${buildId}: 没有找到数据，继续等待"
                     allFinished = false
                     continue
                 }
 
                 json.each { item ->
-                    if (!item) {
-                        echo "build_id ${buildId}: 空的条目，继续等待"
-                        allFinished = false
-                        return
-                    }
-                    if (!item._source) {
-                        echo "build_id ${buildId}: 没有 _source 字段，继续等待"
+                    if (!item || !item._source) {
                         allFinished = false
                         return
                     }
@@ -265,14 +261,13 @@ def waitForBuild(Map args) {
                     }
                 }
             } catch (Exception e) {
-                echo "查询异常 (buildId: ${buildId}): ${e.message}"
                 allFinished = false
             }
         }
 
-        // 如果都结束了，打印每个的状态然后退出
         if (allFinished) {
-            echo "所有构建结束"
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "所有构建结束 (耗时: ${String.format('%.1f', elapsed)} 分钟)"
             for (def buildId in buildIds) {
                 def output = sh(
                     script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -294,6 +289,9 @@ def waitForBuild(Map args) {
             return
         }
 
-        echo "构建中..."
+        if (iteration % 30 == 0) {
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "构建中... (已等待 ${String.format('%.1f', elapsed)} 分钟, 查询 ${iteration} 次)"
+        }
     }
 }
