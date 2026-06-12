@@ -92,23 +92,16 @@ ENDOFFILE
 
         stage('监控everything工程 (6h 超时)') {
             when { expression { !params.SKIP_EVERYTHING } }
-            options {
-                timeout(time: 6, unit: 'HOURS')
-            }
             steps {
-                script {
-                    try {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
                         def buildIds = env.BUILD_IDS_1.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                        waitForBuild(buildIds: buildIds, pollInterval: 10)
-                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        if (e.isExceededTimeout()) {
+                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 360)) {
                             echo "⚠️ everything工程监控超时 (6h)，继续下一步"
-                            currentBuild.result = null
-                        } else {
-                            throw e
+                            error("构建超时")
                         }
+                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
                     }
                 }
             }
@@ -156,23 +149,16 @@ ENDOFFILE
         // ============================================
         stage('监控epol工程 (4h 超时)') {
             when { expression { !params.SKIP_EPOL } }
-            options {
-                timeout(time: 4, unit: 'HOURS')
-            }
             steps {
-                script {
-                    try {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
                         def buildIds = env.BUILD_IDS_2.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
-                        waitForBuild(buildIds: buildIds, pollInterval: 10)
-                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        if (e.isExceededTimeout()) {
+                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 240)) {
                             echo "⚠️ epol工程监控超时 (4h)，继续下一步"
-                            currentBuild.result = null
-                        } else {
-                            throw e
+                            error("构建超时")
                         }
+                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
                     }
                 }
             }
@@ -225,12 +211,22 @@ def triggerBuild(Map args) {
 def waitForBuild(Map args) {
     def buildIds = args.buildIds
     def pollInterval = args.pollInterval
+    def timeoutMinutes = args.timeoutMinutes
 
     def projectStatusStop = [201, 202, 203, 205]
     def startTime = System.currentTimeMillis()
     def iteration = 0
+    def timeoutMs = timeoutMinutes ? timeoutMinutes * 60 * 1000 : null
 
     while (true) {
+        if (timeoutMs != null) {
+            def elapsed = System.currentTimeMillis() - startTime
+            if (elapsed > timeoutMs) {
+                echo "⚠️ 监控超时 (${timeoutMinutes}min)，已等待 ${String.format('%.1f', elapsed / 1000 / 60)} 分钟"
+                return false
+            }
+        }
+
         sleep(pollInterval)
         iteration++
 
@@ -286,7 +282,7 @@ def waitForBuild(Map args) {
                     echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
                 }
             }
-            return
+            return true
         }
 
         if (iteration % 30 == 0) {
