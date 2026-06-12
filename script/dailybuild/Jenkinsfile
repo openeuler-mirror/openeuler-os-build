@@ -8,6 +8,7 @@ pipeline {
         booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
         booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
         booleanParam(name: 'SKIP_OTHER', defaultValue: false, description: '跳过其他镜像构建（QCOW2/AMI/Docker 等）')
+        booleanParam(name: 'SKIP_TEST', defaultValue: false, description: '跳过 openQA 测试')
     }
 
     environment {
@@ -178,6 +179,36 @@ ENDOFFILE
                         wait: true
                     )
                     echo "✅ ${params.PROJECT_NAME}-EBS-OTHER 已触发"
+                }
+            }
+        }
+
+        // ============================================
+        // Step 6: 触发 openQA 测试
+        // ============================================
+        stage('执行openQA测试') {
+            when { expression { !params.SKIP_TEST } }
+            steps {
+                script {
+                    echo "========== 触发 openQA 测试 =========="
+                    def testPrefix = params.PROJECT_NAME.replaceFirst('openEuler-', 'openEuler_product_').replaceAll('-', '_')
+                    def testJobs = [
+                        "../openEuler-QA/${testPrefix}_netinst_repo",
+                        "../openEuler-QA/${testPrefix}_netinst_x86_repo",
+                        "../openEuler-QA/${testPrefix}_repo",
+                        "../openEuler-QA/${testPrefix}_x86_repo"
+                    ]
+                    parallel testJobs.collectEntries { jobName ->
+                        [(jobName): {
+                            build(
+                                job: jobName,
+                                propagate: false,
+                                wait: true
+                            )
+                            echo "${jobName} 已触发"
+                        }]
+                    }
+                    echo "✅ openQA 测试已触发"
                 }
             }
         }
