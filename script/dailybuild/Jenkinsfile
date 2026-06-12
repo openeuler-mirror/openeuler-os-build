@@ -8,6 +8,7 @@ pipeline {
         booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
         booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
         booleanParam(name: 'SKIP_OTHER', defaultValue: false, description: '跳过其他镜像构建（QCOW2/AMI/Docker 等）')
+        booleanParam(name: 'SKIP_TEST', defaultValue: false, description: '跳过 openQA 测试')
     }
 
     environment {
@@ -92,22 +93,16 @@ ENDOFFILE
 
         stage('监控everything工程 (6h 超时)') {
             when { expression { !params.SKIP_EVERYTHING } }
-            options {
-                timeout(time: 6, unit: 'HOURS')
-            }
             steps {
-                script {
-                    try {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
                         def buildIds = env.BUILD_IDS_1.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                        waitForBuild(buildIds: buildIds, pollInterval: 10)
-                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        if (e.isExceededTimeout()) {
+                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 360)) {
                             echo "⚠️ everything工程监控超时 (6h)，继续下一步"
-                        } else {
-                            throw e
+                            error("构建超时")
                         }
+                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
                     }
                 }
             }
@@ -155,22 +150,16 @@ ENDOFFILE
         // ============================================
         stage('监控epol工程 (4h 超时)') {
             when { expression { !params.SKIP_EPOL } }
-            options {
-                timeout(time: 4, unit: 'HOURS')
-            }
             steps {
-                script {
-                    try {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
                         def buildIds = env.BUILD_IDS_2.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
-                        waitForBuild(buildIds: buildIds, pollInterval: 10)
-                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        if (e.isExceededTimeout()) {
+                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 240)) {
                             echo "⚠️ epol工程监控超时 (4h)，继续下一步"
-                        } else {
-                            throw e
+                            error("构建超时")
                         }
+                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
                     }
                 }
             }
@@ -190,6 +179,36 @@ ENDOFFILE
                         wait: true
                     )
                     echo "✅ ${params.PROJECT_NAME}-EBS-OTHER 已触发"
+                }
+            }
+        }
+
+        // ============================================
+        // Step 6: 触发 openQA 测试
+        // ============================================
+        stage('执行openQA测试') {
+            when { expression { !params.SKIP_TEST } }
+            steps {
+                script {
+                    echo "========== 触发 openQA 测试 =========="
+                    def testPrefix = params.PROJECT_NAME.replaceFirst('openEuler-', 'openEuler_product_').replaceAll('-', '_')
+                    def testJobs = [
+                        "../openEuler-QA/${testPrefix}_netinst_repo",
+                        "../openEuler-QA/${testPrefix}_netinst_x86_repo",
+                        "../openEuler-QA/${testPrefix}_repo",
+                        "../openEuler-QA/${testPrefix}_x86_repo"
+                    ]
+                    parallel testJobs.collectEntries { jobName ->
+                        [(jobName): {
+                            build(
+                                job: jobName,
+                                propagate: false,
+                                wait: true
+                            )
+                            echo "${jobName} 已触发"
+                        }]
+                    }
+                    echo "✅ openQA 测试已触发"
                 }
             }
         }
@@ -223,15 +242,27 @@ def triggerBuild(Map args) {
 def waitForBuild(Map args) {
     def buildIds = args.buildIds
     def pollInterval = args.pollInterval
+    def timeoutMinutes = args.timeoutMinutes
 
     def projectStatusStop = [201, 202, 203, 205]
+    def startTime = System.currentTimeMillis()
+    def iteration = 0
+    def timeoutMs = timeoutMinutes ? timeoutMinutes * 60 * 1000 : null
 
     while (true) {
+        if (timeoutMs != null) {
+            def elapsed = System.currentTimeMillis() - startTime
+            if (elapsed > timeoutMs) {
+                echo "⚠️ 监控超时 (${timeoutMinutes}min)，已等待 ${String.format('%.1f', elapsed / 1000 / 60)} 分钟"
+                return false
+            }
+        }
+
         sleep(pollInterval)
+        iteration++
 
         def allFinished = true
 
-        // 检查每个 build_id
         for (def buildId in buildIds) {
             def output = sh(
                 script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -239,23 +270,15 @@ def waitForBuild(Map args) {
             ).trim()
 
             try {
-                // select 返回的直接是数组，不是 {"data": ...}
                 def json = readJSON(text: output)
 
                 if (!json || json.isEmpty()) {
-                    echo "build_id ${buildId}: 没有找到数据，继续等待"
                     allFinished = false
                     continue
                 }
 
                 json.each { item ->
-                    if (!item) {
-                        echo "build_id ${buildId}: 空的条目，继续等待"
-                        allFinished = false
-                        return
-                    }
-                    if (!item._source) {
-                        echo "build_id ${buildId}: 没有 _source 字段，继续等待"
+                    if (!item || !item._source) {
                         allFinished = false
                         return
                     }
@@ -265,14 +288,13 @@ def waitForBuild(Map args) {
                     }
                 }
             } catch (Exception e) {
-                echo "查询异常 (buildId: ${buildId}): ${e.message}"
                 allFinished = false
             }
         }
 
-        // 如果都结束了，打印每个的状态然后退出
         if (allFinished) {
-            echo "所有构建结束"
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "所有构建结束 (耗时: ${String.format('%.1f', elapsed)} 分钟)"
             for (def buildId in buildIds) {
                 def output = sh(
                     script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -291,9 +313,12 @@ def waitForBuild(Map args) {
                     echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
                 }
             }
-            return
+            return true
         }
 
-        echo "构建中..."
+        if (iteration % 30 == 0) {
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "构建中... (已等待 ${String.format('%.1f', elapsed)} 分钟, 查询 ${iteration} 次)"
+        }
     }
 }
