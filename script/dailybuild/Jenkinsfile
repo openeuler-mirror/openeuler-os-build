@@ -91,7 +91,7 @@ ENDOFFILE
             }
         }
 
-        stage('监控everything工程 (6h 超时)') {
+        stage('等待everything工程构建完成 (6h 超时)') {
             when { expression { !params.SKIP_EVERYTHING } }
             steps {
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
@@ -148,7 +148,7 @@ ENDOFFILE
         // ============================================
         // Step 4: 监控第二个工程 (4h 超时)
         // ============================================
-        stage('监控epol工程 (4h 超时)') {
+        stage('等待epol工程构建完成 (4h 超时)') {
             when { expression { !params.SKIP_EPOL } }
             steps {
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
@@ -168,7 +168,7 @@ ENDOFFILE
         // ============================================
         // Step 5: 触发 make_iso
         // ============================================
-        stage('触发其他镜像构建') {
+        stage('制作其他镜像') {
             when { expression { !params.SKIP_OTHER } }
             steps {
                 script {
@@ -211,12 +211,6 @@ ENDOFFILE
                     echo "✅ openQA 测试已触发"
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            sh 'rm -f ~/.config/cli/defaults/config.yaml'
         }
     }
 }
