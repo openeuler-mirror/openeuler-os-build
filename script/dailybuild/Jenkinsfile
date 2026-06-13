@@ -5,6 +5,7 @@ pipeline {
         string(name: 'PROJECT_NAME', defaultValue: 'openEuler-24.03-LTS-SP4', description: '工程名（自动拼接 :everything / :epol）')
         choice(name: 'BUILD_TYPE', choices: ['incremental', 'full'], description: '构建类型')
         booleanParam(name: 'SKIP_EVERYTHING', defaultValue: false, description: '跳过 everything 工程构建与监控')
+        booleanParam(name: 'SKIP_64k', defaultValue: false, description: '跳过 EBS-kernel_64k 构建')
         booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
         booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
         booleanParam(name: 'SKIP_OTHER', defaultValue: false, description: '跳过其他镜像构建（QCOW2/AMI/Docker 等）')
@@ -74,7 +75,7 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 2: 第一个工程构建 + 监控 (6h 超时)
+        // Step 2: everything 工程 + kernel_64k 构建（并行）
         // ============================================
         stage('触发everything工程构建') {
             when { expression { !params.SKIP_EVERYTHING } }
@@ -91,19 +92,42 @@ ENDOFFILE
             }
         }
 
-        stage('等待everything工程构建完成 (6h 超时)') {
-            when { expression { !params.SKIP_EVERYTHING } }
+        stage('等待everything (6h 超时) & 构建kernel_64k') {
+            when { expression { !params.SKIP_EVERYTHING || !params.SKIP_64k } }
             steps {
-                catchError(buildResult: null, stageResult: 'UNSTABLE') {
-                    script {
-                        def buildIds = env.BUILD_IDS_1.split(',')
-                        echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 360)) {
-                            echo "⚠️ everything工程监控超时 (6h)，继续下一步"
-                            error("构建超时")
+                script {
+                    echo "========== 等待everything + 构建kernel_64k =========="
+                    def branches = [:]
+                    
+                    if (!params.SKIP_EVERYTHING) {
+                        branches['等待everything'] = {
+                            catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                                def buildIds = env.BUILD_IDS_1.split(',')
+                                echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
+                                if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 360)) {
+                                    echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                                    error("构建超时")
+                                }
+                                echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
+                            }
                         }
-                        echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
                     }
+                    
+                    if (!params.SKIP_64k) {
+                        branches['构建kernel_64k'] = {
+                            catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                                echo "========== 触发 ${params.PROJECT_NAME}-EBS-kernel_64k =========="
+                                build(
+                                    job: "${params.PROJECT_NAME}-EBS-kernel_64k",
+                                    propagate: false,
+                                    wait: true
+                                )
+                                echo "✅ ${params.PROJECT_NAME}-EBS-kernel_64k 已完成"
+                            }
+                        }
+                    }
+                    
+                    parallel branches
                 }
             }
         }
