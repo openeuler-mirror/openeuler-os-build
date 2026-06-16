@@ -2,8 +2,6 @@ pipeline {
     agent { label 'k8s-x86-openeuler-cbs' }
 
     parameters {
-        string(name: 'PROJECT_NAME', defaultValue: 'openEuler-24.03-LTS-SP4', description: '工程名（自动拼接 :everything / :epol）')
-        choice(name: 'BUILD_TYPE', choices: ['incremental', 'full'], description: '构建类型')
         booleanParam(name: 'SKIP_EVERYTHING', defaultValue: false, description: '跳过 everything 工程构建与监控')
         booleanParam(name: 'SKIP_64k', defaultValue: false, description: '跳过 EBS-kernel_64k 构建')
         booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
@@ -20,9 +18,9 @@ pipeline {
 
     stages {
         // ============================================
-        // Step 1: 初始化 CCB 环境
+        // Step 1: 初始化CCB环境和参数校验
         // ============================================
-        stage('初始化 CCB 环境') {
+        stage('初始化CCB环境和参数校验') {
             steps {
                 script {
                     withCredentials([
@@ -70,6 +68,14 @@ ENDOFFILE
                         }
                         echo "ccb command is ok!"
                     }
+                    if (!params.PROJECT_NAME) {
+                        error("PROJECT_NAME 未配置！请在 Jenkins Job → 配置 → 'This project is parameterized' 中添加:\n  - PROJECT_NAME (String Parameter)\n  - BUILD_TYPE (Choice Parameter: incremental / full)")
+                    }
+                    if (!params.BUILD_TYPE) {
+                        error("BUILD_TYPE 未配置！请在 Jenkins Job → 配置 → 'This project is parameterized' 中添加 Choice Parameter: incremental, full")
+                    }
+                    echo "PROJECT_NAME = ${params.PROJECT_NAME}"
+                    echo "BUILD_TYPE = ${params.BUILD_TYPE}"
                 }
             }
         }
