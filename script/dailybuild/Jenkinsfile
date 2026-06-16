@@ -1,17 +1,6 @@
 pipeline {
     agent { label 'k8s-x86-openeuler-cbs' }
 
-    parameters {
-        string(name: 'PROJECT_NAME', defaultValue: 'openEuler-24.03-LTS-SP4', description: '工程名（自动拼接 :everything / :epol）')
-        choice(name: 'BUILD_TYPE', choices: ['incremental', 'full'], description: '构建类型')
-        booleanParam(name: 'SKIP_EVERYTHING', defaultValue: false, description: '跳过 everything 工程构建与监控')
-        booleanParam(name: 'SKIP_64k', defaultValue: false, description: '跳过 EBS-kernel_64k 构建')
-        booleanParam(name: 'SKIP_EPOL', defaultValue: false, description: '跳过 epol 工程构建与监控')
-        booleanParam(name: 'SKIP_ISO', defaultValue: false, description: '跳过 ISO 镜像构建')
-        booleanParam(name: 'SKIP_OTHER', defaultValue: false, description: '跳过其他镜像构建（QCOW2/AMI/Docker 等）')
-        booleanParam(name: 'SKIP_TEST', defaultValue: false, description: '跳过 openQA 测试')
-    }
-
     environment {
         CCB_HOME = '/home/jenkins/ccb1'
         CCB_GATEWAY_HOST = '172.16.9.179'
@@ -20,9 +9,9 @@ pipeline {
 
     stages {
         // ============================================
-        // Step 1: 初始化 CCB 环境
+        // Step 1: 初始化CCB环境和参数校验
         // ============================================
-        stage('初始化 CCB 环境') {
+        stage('初始化CCB环境和参数校验') {
             steps {
                 script {
                     withCredentials([
@@ -70,6 +59,14 @@ ENDOFFILE
                         }
                         echo "ccb command is ok!"
                     }
+                    if (!params.PROJECT_NAME) {
+                        error("PROJECT_NAME 未配置！请在 Jenkins Job → 配置 → 'This project is parameterized' 中添加:\n  - PROJECT_NAME (String Parameter)\n  - BUILD_TYPE (Choice Parameter: incremental / full)")
+                    }
+                    if (!params.BUILD_TYPE) {
+                        error("BUILD_TYPE 未配置！请在 Jenkins Job → 配置 → 'This project is parameterized' 中添加 Choice Parameter: incremental, full")
+                    }
+                    echo "PROJECT_NAME = ${params.PROJECT_NAME}"
+                    echo "BUILD_TYPE = ${params.BUILD_TYPE}"
                 }
             }
         }
@@ -78,7 +75,7 @@ ENDOFFILE
         // Step 2: everything 工程 + kernel_64k 构建（并行）
         // ============================================
         stage('触发everything工程构建') {
-            when { expression { !params.SKIP_EVERYTHING } }
+            when { expression { !params.get('SKIP_EVERYTHING', false) } }
             steps {
                 script {
                     def project = "${params.PROJECT_NAME}:everything"
@@ -93,13 +90,13 @@ ENDOFFILE
         }
 
         stage('等待everything (6h 超时) & 构建kernel_64k') {
-            when { expression { !params.SKIP_EVERYTHING || !params.SKIP_64k } }
+            when { expression { !params.get('SKIP_EVERYTHING', false) || !params.get('SKIP_64k', false) } }
             steps {
                 script {
                     echo "========== 等待everything + 构建kernel_64k =========="
                     def branches = [:]
                     
-                    if (!params.SKIP_EVERYTHING) {
+                    if (!params.get('SKIP_EVERYTHING', false)) {
                         branches['等待everything'] = {
                             catchError(buildResult: null, stageResult: 'UNSTABLE') {
                                 def buildIds = env.BUILD_IDS_1.split(',')
@@ -113,7 +110,7 @@ ENDOFFILE
                         }
                     }
                     
-                    if (!params.SKIP_64k) {
+                    if (!params.get('SKIP_64k', false)) {
                         branches['构建kernel_64k'] = {
                             catchError(buildResult: null, stageResult: 'UNSTABLE') {
                                 echo "========== 触发 ${params.PROJECT_NAME}-EBS-kernel_64k =========="
@@ -136,7 +133,7 @@ ENDOFFILE
         // Step 3: 触发第二个 ccb build + check_install（并行）
         // ============================================
         stage('触发epol工程 & 制作ISO镜像') {
-            when { expression { !params.SKIP_EPOL || !params.SKIP_ISO } }
+            when { expression { !params.get('SKIP_EPOL', false) || !params.get('SKIP_ISO', false) } }
             steps {
                 script {
                     def project = "${params.PROJECT_NAME}:epol"
@@ -144,7 +141,7 @@ ENDOFFILE
 
                     parallel(
                         '触发epol工程构建': {
-                            if (params.SKIP_EPOL) {
+                            if (params.get('SKIP_EPOL', false)) {
                                 echo "跳过 epol 工程构建"
                             } else {
                                 def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
@@ -153,7 +150,7 @@ ENDOFFILE
                             }
                         },
                         '触发ISO构建': {
-                            if (params.SKIP_ISO) {
+                            if (params.get('SKIP_ISO', false)) {
                                 echo "跳过 ISO 镜像构建"
                             } else {
                                 build(
@@ -173,7 +170,7 @@ ENDOFFILE
         // Step 4: 监控第二个工程 (4h 超时)
         // ============================================
         stage('等待epol工程构建完成 (4h 超时)') {
-            when { expression { !params.SKIP_EPOL } }
+            when { expression { !params.get('SKIP_EPOL', false) } }
             steps {
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
                     script {
@@ -193,7 +190,7 @@ ENDOFFILE
         // Step 5: 触发 make_iso
         // ============================================
         stage('制作其他镜像') {
-            when { expression { !params.SKIP_OTHER } }
+            when { expression { !params.get('SKIP_OTHER', false) } }
             steps {
                 script {
                     echo "========== 触发 ${params.PROJECT_NAME}-EBS-OTHER 流水线 =========="
@@ -211,7 +208,7 @@ ENDOFFILE
         // Step 6: 触发 openQA 测试
         // ============================================
         stage('执行openQA测试') {
-            when { expression { !params.SKIP_TEST } }
+            when { expression { !params.get('SKIP_TEST', false) } }
             steps {
                 script {
                     echo "========== 触发 openQA 测试 =========="
