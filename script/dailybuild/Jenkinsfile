@@ -89,7 +89,7 @@ ENDOFFILE
             }
         }
 
-        stage('等待everything (6h 超时) & 构建kernel_64k') {
+        stage('等待everything & 构建kernel_64k') {
             when { expression { !params.get('SKIP_EVERYTHING', false) || !params.get('SKIP_64k', false) } }
             steps {
                 script {
@@ -101,8 +101,8 @@ ENDOFFILE
                             catchError(buildResult: null, stageResult: 'UNSTABLE') {
                                 def buildIds = env.BUILD_IDS_1.split(',')
                                 echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                                if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 360)) {
-                                    echo "⚠️ everything工程监控超时 (6h)，继续下一步"
+                                if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
+                                    echo "⚠️ everything工程监控超时，继续下一步"
                                     error("构建超时")
                                 }
                                 echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
@@ -167,17 +167,17 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 4: 监控第二个工程 (4h 超时)
+        // Step 4: 监控 epol 工程
         // ============================================
-        stage('等待epol工程构建完成 (4h 超时)') {
+        stage('等待epol工程构建完成') {
             when { expression { !params.get('SKIP_EPOL', false) } }
             steps {
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
                     script {
                         def buildIds = env.BUILD_IDS_2.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
-                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: 240)) {
-                            echo "⚠️ epol工程监控超时 (4h)，继续下一步"
+                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
+                            echo "⚠️ epol工程监控超时，继续下一步"
                             error("构建超时")
                         }
                         echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
