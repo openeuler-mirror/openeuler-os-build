@@ -102,8 +102,8 @@ ENDOFFILE
                                 def buildIds = env.BUILD_IDS_1.split(',')
                                 echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
                                 if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
-                                    echo "⚠️ everything工程监控超时，继续下一步"
-                                    error("构建超时")
+                                    echo "⚠️ everything工程构建未成功完成，继续下一步"
+                                    error("构建未成功完成")
                                 }
                                 echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
                             }
@@ -177,8 +177,8 @@ ENDOFFILE
                         def buildIds = env.BUILD_IDS_2.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
                         if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
-                            echo "⚠️ epol工程监控超时，继续下一步"
-                            error("构建超时")
+                            echo "⚠️ epol工程构建未成功完成，继续下一步"
+                            error("构建未成功完成")
                         }
                         echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
                     }
@@ -234,6 +234,61 @@ ENDOFFILE
             }
         }
     }
+
+    post {
+        always {
+            script {
+                echo "========== 飞书通知 =========="
+                withCredentials([
+                    string(credentialsId: 'FEISHU_WEBHOOK', variable: 'FEISHU_WEBHOOK')
+                ]) {
+                    def buildStatus = currentBuild.result ?: 'SUCCESS'
+                    def statusColor = buildStatus == 'SUCCESS' ? 'green' : 'red'
+                    def statusEmoji = buildStatus == 'SUCCESS' ? '✅' : '❌'
+                    def duration = currentBuild.durationString.replace(' and counting', '')
+                    def buildUrl = "${env.BUILD_URL}"
+
+                    sh """
+                        curl -s -X POST '${FEISHU_WEBHOOK}' \
+                            -H 'Content-Type: application/json' \
+                            -d '{
+                                "msg_type": "interactive",
+                                "card": {
+                                    "header": {
+                                        "title": {
+                                            "tag": "plain_text",
+                                            "content": "${statusEmoji} ${params.PROJECT_NAME} 日构建通知"
+                                        },
+                                        "template": "${statusColor}"
+                                    },
+                                    "elements": [
+                                        {
+                                            "tag": "div",
+                                            "text": {
+                                                "tag": "lark_md",
+                                                "content": "**项目名称：**${params.PROJECT_NAME}\\n**构建类型：**${params.BUILD_TYPE}\\n**构建结果：**${statusEmoji} ${buildStatus}\\n**耗时：**${duration}\\n**构建详情：**[点击查看](${buildUrl})"
+                                            }
+                                        },
+                                        {
+                                            "tag": "hr"
+                                        },
+                                        {
+                                            "tag": "note",
+                                            "elements": [
+                                                {
+                                                    "tag": "plain_text",
+                                                    "content": "Jenkins 日构建流水线自动通知"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }'
+                    """
+                }
+            }
+        }
+    }
 }
 
 // ============================================================
@@ -260,6 +315,7 @@ def waitForBuild(Map args) {
     def timeoutMinutes = args.timeoutMinutes
 
     def projectStatusStop = [201, 202, 203, 205]
+    def projectStatusSuccess = [201]
     def startTime = System.currentTimeMillis()
     def iteration = 0
     def timeoutMs = timeoutMinutes ? timeoutMinutes * 60 * 1000 : null
@@ -310,6 +366,7 @@ def waitForBuild(Map args) {
         if (allFinished) {
             def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
             echo "所有构建结束 (耗时: ${String.format('%.1f', elapsed)} 分钟)"
+            def hasFailure = false
             for (def buildId in buildIds) {
                 def output = sh(
                     script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -320,13 +377,22 @@ def waitForBuild(Map args) {
                     if (json) {
                         json.each { item ->
                             if (item?._source) {
-                                echo "build_id ${buildId}: 项目状态: ${item._source?.status}"
+                                def projStatus = item._source?.status
+                                echo "build_id ${buildId}: 项目状态: ${projStatus}"
+                                if (!(projStatus in projectStatusSuccess)) {
+                                    hasFailure = true
+                                }
                             }
                         }
                     }
                 } catch (Exception e) {
                     echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
+                    hasFailure = true
                 }
+            }
+            if (hasFailure) {
+                echo "⚠️ 存在构建失败的项目"
+                return false
             }
             return true
         }
