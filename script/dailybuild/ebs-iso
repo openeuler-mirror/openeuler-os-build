@@ -1,0 +1,247 @@
+pipeline {
+    agent none
+    stages {
+        stage('check_install') {
+            steps {
+                script {
+                    env.ISO_RESULT_check_install = build(
+                        job: "check-rpm-install-dependence-${params.VERSION}-ebs",
+                        propagate: false
+                    ).result
+                }
+            }
+        }
+        stage('set_release_dir') {
+            steps {
+                script {
+                    env.ISO_RESULT_set_release_dir = build(
+                        job: 'openEuler-build-01-set_release_dir',
+                        parameters: [
+                            string(name: 'isbuild', value: params.set_release_dir),
+                            string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                            string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                            string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64)
+                        ],
+                        propagate: false
+                    ).result
+                }
+            }
+        }
+        stage('make_version') {
+            steps {
+                script {
+                    parallel(
+                        "make_iso_aarch64": {
+                            env.ISO_RESULT_make_iso_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_iso_x86_64": {
+                            env.ISO_RESULT_make_iso_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_iso_everything_aarch64": {
+                            env.ISO_RESULT_make_iso_everything_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_iso_everything',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso_everything),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_iso_everything_x86_64": {
+                            env.ISO_RESULT_make_iso_everything_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_iso_everything',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso_everything),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_debug_everything_aarch64": {
+                            env.ISO_RESULT_make_debug_everything_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_debug_everything',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_debug_everything),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_debug_everything_x86_64": {
+                            env.ISO_RESULT_make_debug_everything_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_debug_everything',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_debug_everything),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_iso_everysrc_x86_64": {
+                            env.ISO_RESULT_make_iso_everysrc_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_iso_everysrc',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso_everysrc),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_netinst_iso_aarch64": {
+                            env.ISO_RESULT_make_netinst_iso_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_netinst_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_netinst_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64)
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_netinst_iso_x86_64": {
+                            env.ISO_RESULT_make_netinst_iso_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_netinst_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_netinst_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64)
+                                ],
+                                propagate: false
+                            ).result
+                        }
+                    )
+                }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                node {
+                    withCredentials([
+                        string(credentialsId: 'FEISHU_WEBHOOK', variable: 'FEISHU_WEBHOOK')
+                    ]) {
+                    def buildStatus = currentBuild.result ?: 'SUCCESS'
+                    def statusEmoji = buildStatus == 'SUCCESS' ? '✅' : '❌'
+                    def statusColor = buildStatus == 'SUCCESS' ? 'green' : 'red'
+                    def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
+                    def buildUrl = "${env.BUILD_URL}"
+
+                    def projectName = params.STANDARD_PROJECT.replace("'", "'\\''")
+                    def jobLines = ''
+                    def jobOrder = [
+                        'check_install',
+                        'set_release_dir',
+                        'make_iso_aarch64',
+                        'make_iso_x86_64',
+                        'make_iso_everything_aarch64',
+                        'make_iso_everything_x86_64',
+                        'make_debug_everything_aarch64',
+                        'make_debug_everything_x86_64',
+                        'make_iso_everysrc_x86_64',
+                        'make_netinst_iso_aarch64',
+                        'make_netinst_iso_x86_64'
+                    ]
+                    jobOrder.each { name ->
+                        def result = env."ISO_RESULT_${name}" ?: 'SKIPPED'
+                        def emoji = result == 'SUCCESS' ? '✅' : (result == 'SKIPPED' ? '⬜' : '❌')
+                        jobLines += "${emoji} ${name}: ${result}\\n"
+                    }
+
+                    sh """
+                        curl -s -X POST '${FEISHU_WEBHOOK}' \
+                            -H 'Content-Type: application/json' \
+                            -d '{
+                                "msg_type": "interactive",
+                                "card": {
+                                    "header": {
+                                        "title": {
+                                            "tag": "plain_text",
+                                            "content": "${statusEmoji} ${projectName} ISO 构建通知"
+                                        },
+                                        "template": "${statusColor}"
+                                    },
+                                    "elements": [
+                                        {
+                                            "tag": "div",
+                                            "text": {
+                                                "tag": "lark_md",
+                                                "content": "**流水线状态：**${statusEmoji} ${buildStatus}\\n**耗时：**${duration}"
+                                            }
+                                        },
+                                        {
+                                            "tag": "hr"
+                                        },
+                                        {
+                                            "tag": "div",
+                                            "text": {
+                                                "tag": "lark_md",
+                                                "content": "**各 Job 执行情况：**\\n${jobLines}"
+                                            }
+                                        },
+                                        {
+                                            "tag": "hr"
+                                        },
+                                        {
+                                            "tag": "action",
+                                            "actions": [
+                                                {
+                                                    "tag": "button",
+                                                    "text": {
+                                                        "tag": "plain_text",
+                                                        "content": "查看构建详情"
+                                                    },
+                                                    "url": "${buildUrl}",
+                                                    "type": "default"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "tag": "note",
+                                            "elements": [
+                                                {
+                                                    "tag": "plain_text",
+                                                    "content": "Jenkins ISO 构建流水线自动通知"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }'
+                    """
+                    }
+                }
+            }
+        }
+    }
+}

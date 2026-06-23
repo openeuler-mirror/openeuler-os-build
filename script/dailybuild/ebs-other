@@ -1,0 +1,276 @@
+pipeline {
+    agent none
+    stages {
+        stage('check_install') {
+            steps {
+                script {
+                    env.OTHER_RESULT_check_install = build(
+                        job: "check-rpm-install-dependence-${params.VERSION}-ebs",
+                        propagate: false
+                    ).result
+                }
+            }
+        }
+        stage('make_version') {
+            steps {
+                script {
+                    parallel(
+                        "get_epol_rpms_aarch64": {
+                            env.OTHER_RESULT_get_epol_rpms_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-get_epol_rpms',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.get_epol_rpms),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                    string(name: 'Antelope_repo', value: params.Antelope_repo_aarch64),
+                                    string(name: 'Wallaby_repo', value: params.Wallaby_repo_aarch64),
+                                    string(name: 'nestos_for_virt_repo', value: params.nestos_for_virt_repo_aarch64),
+                                    string(name: 'nestos_for_container_repo', value: params.nestos_for_container_repo_aarch64),
+                                    string(name: 'humble_repo', value: params.humble_repo_aarch64),
+                                    string(name: 'noetic_repo', value: params.noetic_repo_aarch64),
+                                    string(name: 'Train_repo', value: params.Train_repo_aarch64),
+                                    string(name: 'kubernetes_repo', value: params.kubernetes_repo_aarch64),
+                                    string(name: 'lustre_repo', value: params.lustre_repo_aarch64),
+                                    string(name: 'EPOL_MULTI_VERSION_LIST', value: params.EPOL_MULTI_VERSION_LIST),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "get_epol_rpms_x86_64": {
+                            env.OTHER_RESULT_get_epol_rpms_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-get_epol_rpms',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.get_epol_rpms),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64),
+                                    string(name: 'Antelope_repo', value: params.Antelope_repo_x86_64),
+                                    string(name: 'Wallaby_repo', value: params.Wallaby_repo_x86_64),
+                                    string(name: 'nestos_for_virt_repo', value: params.nestos_for_virt_repo_x86_64),
+                                    string(name: 'nestos_for_container_repo', value: params.nestos_for_container_repo_x86_64),
+                                    string(name: 'humble_repo', value: params.humble_repo_x86_64),
+                                    string(name: 'noetic_repo', value: params.noetic_repo_x86_64),
+                                    string(name: 'Train_repo', value: params.Train_repo_x86_64),
+                                    string(name: 'kubernetes_repo', value: params.kubernetes_repo_x86_64),
+                                    string(name: 'lustre_repo', value: params.lustre_repo_x86_64),
+                                    string(name: 'EPOL_MULTI_VERSION_LIST', value: params.EPOL_MULTI_VERSION_LIST),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_edge_iso_aarch64": {
+                            env.OTHER_RESULT_make_edge_iso_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_edge_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_edge_iso_x86_64": {
+                            env.OTHER_RESULT_make_edge_iso_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_edge_iso',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_docker_image_aarch64": {
+                            env.OTHER_RESULT_make_docker_image_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_docker_image',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_docker_image),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_docker_image_x86_64": {
+                            env.OTHER_RESULT_make_docker_image_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_docker_image',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_docker_image),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_hmi_aarch64": {
+                            env.OTHER_RESULT_make_hmi_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_hmi',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_hmi),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_hmi_x86_64": {
+                            env.OTHER_RESULT_make_hmi_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_hmi',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_hmi),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_microvm_image_aarch64": {
+                            env.OTHER_RESULT_make_microvm_image_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_microvm_image',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_netinst_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_microvm_image_x86_64": {
+                            env.OTHER_RESULT_make_microvm_image_x86_64 = build(
+                                job: 'openEuler-build-x86_64-02-make_microvm_image',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_netinst_iso),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_x86_64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_x86_64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                        "make_raspi_image_aarch64": {
+                            env.OTHER_RESULT_make_raspi_image_aarch64 = build(
+                                job: 'openEuler-build-aarch64-02-make_raspi_image',
+                                parameters: [
+                                    string(name: 'isbuild', value: params.make_raspi_image),
+                                    string(name: 'STANDARD_PROJECT', value: params.STANDARD_PROJECT),
+                                    string(name: 'STANDARD_PROJECT_REPO', value: params.main_repo_aarch64),
+                                    string(name: 'EPOL_PROJECT_REPO', value: params.epol_repo_aarch64),
+                                ],
+                                propagate: false
+                            ).result
+                        },
+                    )
+                }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                node {
+                    withCredentials([
+                        string(credentialsId: 'FEISHU_WEBHOOK', variable: 'FEISHU_WEBHOOK')
+                    ]) {
+                    def buildStatus = currentBuild.result ?: 'SUCCESS'
+                    def statusEmoji = buildStatus == 'SUCCESS' ? '✅' : '❌'
+                    def statusColor = buildStatus == 'SUCCESS' ? 'green' : 'red'
+                    def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
+                    def buildUrl = "${env.BUILD_URL}"
+
+                    def projectName = params.STANDARD_PROJECT.replace("'", "'\\''")
+                    def jobLines = ''
+                    def jobOrder = [
+                        'check_install',
+                        'get_epol_rpms_aarch64',
+                        'get_epol_rpms_x86_64',
+                        'make_edge_iso_aarch64',
+                        'make_edge_iso_x86_64',
+                        'make_docker_image_aarch64',
+                        'make_docker_image_x86_64',
+                        'make_hmi_aarch64',
+                        'make_hmi_x86_64',
+                        'make_microvm_image_aarch64',
+                        'make_microvm_image_x86_64',
+                        'make_raspi_image_aarch64'
+                    ]
+                    jobOrder.each { name ->
+                        def result = env."OTHER_RESULT_${name}" ?: 'SKIPPED'
+                        def emoji = result == 'SUCCESS' ? '✅' : (result == 'SKIPPED' ? '⬜' : '❌')
+                        jobLines += "${emoji} ${name}: ${result}\\n"
+                    }
+
+                    sh """
+                        curl -s -X POST '${FEISHU_WEBHOOK}' \
+                            -H 'Content-Type: application/json' \
+                            -d '{
+                                "msg_type": "interactive",
+                                "card": {
+                                    "header": {
+                                        "title": {
+                                            "tag": "plain_text",
+                                            "content": "${statusEmoji} ${projectName} 镜像构建通知"
+                                        },
+                                        "template": "${statusColor}"
+                                    },
+                                    "elements": [
+                                        {
+                                            "tag": "div",
+                                            "text": {
+                                                "tag": "lark_md",
+                                                "content": "**流水线状态：**${statusEmoji} ${buildStatus}\\n**耗时：**${duration}"
+                                            }
+                                        },
+                                        {
+                                            "tag": "hr"
+                                        },
+                                        {
+                                            "tag": "div",
+                                            "text": {
+                                                "tag": "lark_md",
+                                                "content": "**各 Job 执行情况：**\\n${jobLines}"
+                                            }
+                                        },
+                                        {
+                                            "tag": "hr"
+                                        },
+                                        {
+                                            "tag": "action",
+                                            "actions": [
+                                                {
+                                                    "tag": "button",
+                                                    "text": {
+                                                        "tag": "plain_text",
+                                                        "content": "查看构建详情"
+                                                    },
+                                                    "url": "${buildUrl}",
+                                                    "type": "default"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "tag": "note",
+                                            "elements": [
+                                                {
+                                                    "tag": "plain_text",
+                                                    "content": "Jenkins 镜像构建流水线自动通知"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }'
+                    """
+                    }
+                }
+            }
+        }
+    }
+}
