@@ -1,3 +1,5 @@
+@Library('openeuler-os-build') _
+
 pipeline {
     agent { label 'k8s-x86-openeuler-cbs' }
 
@@ -101,7 +103,7 @@ ENDOFFILE
                             catchError(buildResult: null, stageResult: 'UNSTABLE') {
                                 def buildIds = env.BUILD_IDS_1.split(',')
                                 echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                                if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
+                                if (!waitForBuild(buildIds: buildIds, project: "${params.PROJECT_NAME}:everything", pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
                                     echo "⚠️ everything工程构建未成功完成，继续下一步"
                                     error("构建未成功完成")
                                 }
@@ -176,7 +178,7 @@ ENDOFFILE
                     script {
                         def buildIds = env.BUILD_IDS_2.split(',')
                         echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
-                        if (!waitForBuild(buildIds: buildIds, pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
+                        if (!waitForBuild(buildIds: buildIds, project: "${params.PROJECT_NAME}:epol", pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
                             echo "⚠️ epol工程构建未成功完成，继续下一步"
                             error("构建未成功完成")
                         }
@@ -239,53 +241,18 @@ ENDOFFILE
         always {
             script {
                 echo "========== 飞书通知 =========="
-                withCredentials([
-                    string(credentialsId: 'FEISHU_WEBHOOK', variable: 'FEISHU_WEBHOOK')
-                ]) {
-                    def buildStatus = currentBuild.result ?: 'SUCCESS'
-                    def statusColor = buildStatus == 'SUCCESS' ? 'green' : 'red'
-                    def statusEmoji = buildStatus == 'SUCCESS' ? '✅' : '❌'
-                    def duration = currentBuild.durationString.replace(' and counting', '')
-                    def buildUrl = "${env.BUILD_URL}"
+                def buildStatus = currentBuild.result ?: 'SUCCESS'
+                def isSuccess = (buildStatus == 'SUCCESS')
+                def statusEmoji = isSuccess ? '✅' : '❌'
+                def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
 
-                    sh """
-                        curl -s -X POST '${FEISHU_WEBHOOK}' \
-                            -H 'Content-Type: application/json' \
-                            -d '{
-                                "msg_type": "interactive",
-                                "card": {
-                                    "header": {
-                                        "title": {
-                                            "tag": "plain_text",
-                                            "content": "${statusEmoji} ${params.PROJECT_NAME} 日构建通知"
-                                        },
-                                        "template": "${statusColor}"
-                                    },
-                                    "elements": [
-                                        {
-                                            "tag": "div",
-                                            "text": {
-                                                "tag": "lark_md",
-                                                "content": "**项目名称：**${params.PROJECT_NAME}\\n**构建类型：**${params.BUILD_TYPE}\\n**构建结果：**${statusEmoji} ${buildStatus}\\n**耗时：**${duration}\\n**构建详情：**[点击查看](${buildUrl})"
-                                            }
-                                        },
-                                        {
-                                            "tag": "hr"
-                                        },
-                                        {
-                                            "tag": "note",
-                                            "elements": [
-                                                {
-                                                    "tag": "plain_text",
-                                                    "content": "Jenkins 日构建流水线自动通知"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }'
-                    """
-                }
+                sendFeishu(
+                    title: "${params.PROJECT_NAME} 日构建通知",
+                    project: params.PROJECT_NAME,
+                    isSuccess: isSuccess,
+                    note: 'Jenkins 日构建流水线自动通知',
+                    detail: "**构建类型：**${params.BUILD_TYPE}\n**构建结果：**${statusEmoji} ${buildStatus}\n**耗时：**${duration}"
+                )
             }
         }
     }
@@ -295,15 +262,29 @@ ENDOFFILE
 // 辅助函数：触发构建，返回 build_id 列表
 // ============================================================
 def triggerBuild(Map args) {
-    def cmd = "${CCB_HOME}/sbin/cli/ccb build os_project=${args.project} build_type=${args.buildType}"
+    def project = args.project
+    def buildType = args.buildType
+    def cmd = "${CCB_HOME}/sbin/cli/ccb build os_project=${project} build_type=${buildType}"
 
     echo "执行: ${cmd}"
-    def output = sh(script: cmd, returnStdout: true).trim()
-    echo "返回: ${output}"
+    try {
+        def output = sh(script: cmd, returnStdout: true).trim()
+        echo "返回: ${output}"
 
-    def json = readJSON(text: output)
-    // 获取所有 build_id（data 的所有 key）
-    return json.data.keySet().toList()
+        def json = readJSON(text: output)
+        // 获取所有 build_id（data 的所有 key）
+        return json.data.keySet().toList()
+    } catch (Exception e) {
+        echo "❌ 触发构建失败: ${e.message}"
+        sendFeishu(
+            title: "触发构建失败",
+            project: project,
+            isSuccess: false,
+            note: 'Jenkins 日构建流水线告警通知',
+            detail: "构建类型: ${buildType}\n错误信息: ${e.message}"
+        )
+        throw e
+    }
 }
 
 // ============================================================
@@ -311,10 +292,12 @@ def triggerBuild(Map args) {
 // ============================================================
 def waitForBuild(Map args) {
     def buildIds = args.buildIds
+    def project = args.project
     def pollInterval = args.pollInterval
     def timeoutMinutes = args.timeoutMinutes
 
     def projectStatusStop = [201, 202, 203, 205]
+    def projectStatusNotice = [203, 205]
     def projectStatusSuccess = [201]
     def startTime = System.currentTimeMillis()
     def iteration = 0
@@ -325,6 +308,13 @@ def waitForBuild(Map args) {
             def elapsed = System.currentTimeMillis() - startTime
             if (elapsed > timeoutMs) {
                 echo "⚠️ 监控超时 (${timeoutMinutes}min)，已等待 ${String.format('%.1f', elapsed / 1000 / 60)} 分钟"
+                sendFeishu(
+                    title: "构建监控超时",
+                    project: project,
+                    isSuccess: false,
+                    note: 'Jenkins 日构建流水线告警通知',
+                    detail: "超时时间: ${timeoutMinutes} 分钟\n已等待: ${String.format('%.1f', elapsed / 1000 / 60)} 分钟\nbuild_ids: ${buildIds.join(', ')}"
+                )
                 return false
             }
         }
@@ -366,7 +356,9 @@ def waitForBuild(Map args) {
         if (allFinished) {
             def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
             echo "所有构建结束 (耗时: ${String.format('%.1f', elapsed)} 分钟)"
+            def noticeDetails = []
             def hasFailure = false
+            def hasNotice = false
             for (def buildId in buildIds) {
                 def output = sh(
                     script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
@@ -382,6 +374,10 @@ def waitForBuild(Map args) {
                                 if (!(projStatus in projectStatusSuccess)) {
                                     hasFailure = true
                                 }
+                                if (projStatus in projectStatusNotice) {
+                                    hasNotice = true
+                                    noticeDetails << "build_id ${buildId}: 状态 ${projStatus}"
+                                }
                             }
                         }
                     }
@@ -389,6 +385,16 @@ def waitForBuild(Map args) {
                     echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
                     hasFailure = true
                 }
+            }
+            if (hasNotice) {
+                echo "⚠️ 存在需要通知的构建状态: ${projectStatusNotice}"
+                sendFeishu(
+                    title: "构建存在异常状态",
+                    project: project,
+                    isSuccess: false,
+                    note: 'Jenkins 日构建流水线告警通知',
+                    detail: "耗时: ${String.format('%.1f', elapsed)} 分钟\n${noticeDetails.join("\n")}"
+                )
             }
             if (hasFailure) {
                 echo "⚠️ 存在构建失败的项目"

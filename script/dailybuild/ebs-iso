@@ -1,3 +1,5 @@
+@Library('openeuler-os-build') _
+
 pipeline {
     agent none
     stages {
@@ -148,16 +150,9 @@ pipeline {
         always {
             script {
                 node {
-                    withCredentials([
-                        string(credentialsId: 'FEISHU_WEBHOOK', variable: 'FEISHU_WEBHOOK')
-                    ]) {
                     def buildStatus = currentBuild.result ?: 'SUCCESS'
-                    def statusEmoji = buildStatus == 'SUCCESS' ? '✅' : '❌'
-                    def statusColor = buildStatus == 'SUCCESS' ? 'green' : 'red'
                     def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
-                    def buildUrl = "${env.BUILD_URL}"
 
-                    def projectName = params.STANDARD_PROJECT.replace("'", "'\\''")
                     def jobLines = ''
                     def jobOrder = [
                         'check_install',
@@ -175,71 +170,19 @@ pipeline {
                     jobOrder.each { name ->
                         def result = env."ISO_RESULT_${name}" ?: 'SKIPPED'
                         def emoji = result == 'SUCCESS' ? '✅' : (result == 'SKIPPED' ? '⬜' : '❌')
-                        jobLines += "${emoji} ${name}: ${result}\\n"
+                        jobLines += "${emoji} ${name}: ${result}\n"
                     }
 
-                    sh """
-                        curl -s -X POST '${FEISHU_WEBHOOK}' \
-                            -H 'Content-Type: application/json' \
-                            -d '{
-                                "msg_type": "interactive",
-                                "card": {
-                                    "header": {
-                                        "title": {
-                                            "tag": "plain_text",
-                                            "content": "${statusEmoji} ${projectName} ISO 构建通知"
-                                        },
-                                        "template": "${statusColor}"
-                                    },
-                                    "elements": [
-                                        {
-                                            "tag": "div",
-                                            "text": {
-                                                "tag": "lark_md",
-                                                "content": "**流水线状态：**${statusEmoji} ${buildStatus}\\n**耗时：**${duration}"
-                                            }
-                                        },
-                                        {
-                                            "tag": "hr"
-                                        },
-                                        {
-                                            "tag": "div",
-                                            "text": {
-                                                "tag": "lark_md",
-                                                "content": "**各 Job 执行情况：**\\n${jobLines}"
-                                            }
-                                        },
-                                        {
-                                            "tag": "hr"
-                                        },
-                                        {
-                                            "tag": "action",
-                                            "actions": [
-                                                {
-                                                    "tag": "button",
-                                                    "text": {
-                                                        "tag": "plain_text",
-                                                        "content": "查看构建详情"
-                                                    },
-                                                    "url": "${buildUrl}",
-                                                    "type": "default"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "tag": "note",
-                                            "elements": [
-                                                {
-                                                    "tag": "plain_text",
-                                                    "content": "Jenkins ISO 构建流水线自动通知"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }'
-                    """
-                    }
+                    sendFeishu(
+                        title: "${params.STANDARD_PROJECT} ISO 构建通知",
+                        project: params.STANDARD_PROJECT,
+                        isSuccess: (buildStatus == 'SUCCESS'),
+                        statusText: buildStatus,
+                        duration: duration,
+                        jobLines: jobLines,
+                        showButton: true,
+                        note: 'Jenkins ISO 构建流水线自动通知'
+                    )
                 }
             }
         }
