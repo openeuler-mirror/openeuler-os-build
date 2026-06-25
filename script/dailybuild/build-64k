@@ -1,0 +1,303 @@
+@Library('openeuler-os-build') _
+
+pipeline {
+    agent { label 'k8s-x86-openeuler-cbs' }
+
+    parameters {
+        string(name: 'PROJECT_NAME', defaultValue: 'kernel-64k-24.03sp4', description: '工程名')
+        choice(name: 'BUILD_TYPE', choices: ['incremental', 'full'], description: '构建类型')
+        booleanParam(name: 'SKIP_CCB', defaultValue: false, description: '跳过 CCB 构建和监控')
+        booleanParam(name: 'SKIP_REPO', defaultValue: false, description: '跳过触发 create-kernel_64k-repo 作业')
+    }
+
+    environment {
+        CCB_HOME = '/home/jenkins/ccb1'
+        CCB_GATEWAY_HOST = '172.16.9.179'
+        CCB_GATEWAY_PORT = '30108'
+    }
+
+    stages {
+        // ============================================
+        // Step 1: 初始化 CCB 环境
+        // ============================================
+        stage('初始化 CCB 环境') {
+            steps {
+                script {
+                    withCredentials([
+                        string(
+                            credentialsId: 'OAUTH_PWD',
+                            variable: 'OAUTH_PWD'
+                        )
+                    ]) {
+                        echo "========== 初始化 CCB =========="
+
+                        sh """
+                            mkdir -p ~/.config/cli/defaults
+                            cat > ~/.config/cli/defaults/config.yaml <<ENDOFFILE
+SRV_HTTP_REPOSITORIES_HOST: ${CCB_GATEWAY_HOST}
+SRV_HTTP_REPOSITORIES_PORT: ${CCB_GATEWAY_PORT}
+SRV_HTTP_REPOSITORIES_PROTOCOL: http://
+SRV_HTTP_RESULT_HOST: ${CCB_GATEWAY_HOST}
+SRV_HTTP_RESULT_PORT: ${CCB_GATEWAY_PORT}
+SRV_HTTP_RESULT_PROTOCOL: http://
+GATEWAY_IP: ${CCB_GATEWAY_HOST}
+GATEWAY_PORT: ${CCB_GATEWAY_PORT}
+ACCOUNT: eulermaker
+PASSWORD: ${OAUTH_PWD}
+OAUTH_TOKEN_URL: "https://omapi.osinfra.cn/oneid/oidc/token"
+OAUTH_REDIRECT_URL: "http://eulermaker.openeuler.openatom.cn/oauth/"
+PUBLIC_KEY_URL: "https://omapi.osinfra.cn/oneid/public/key?community=openeuler"
+ENDOFFILE
+
+                            source \$HOME/.\${SHELL##*/}rc &>/dev/null
+                        """
+
+                        sh '''
+                            ccb_test=/home/jenkins/ccb1
+                            rm -rf ${ccb_test}
+                            mkdir -p ${ccb_test}
+                            git clone https://atomgit.com/openeuler/ccb.git ${ccb_test}
+                        '''
+
+                        def check = sh(
+                            script: "${CCB_HOME}/sbin/cli/ccb -h &>/dev/null",
+                            returnStatus: true
+                        )
+                        if (check != 0) {
+                            error("ccb command is bad!")
+                        }
+                        echo "ccb command is ok!"
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Step 2: 触发 kernel-64k 构建 + 监控 (2h 超时)
+        // ============================================
+        stage('触发kernel-64k构建') {
+            when { expression { !params.SKIP_CCB } }
+            steps {
+                script {
+                    echo "========== ccb build ${params.PROJECT_NAME} =========="
+
+                    def buildIds = triggerBuild(project: params.PROJECT_NAME, buildType: params.BUILD_TYPE)
+                    env.BUILD_IDS = buildIds.join(',')
+                    echo "构建已触发, build_ids: ${env.BUILD_IDS}"
+                }
+            }
+        }
+
+        stage('等待kernel-64k构建完成 (6h 超时)') {
+            when { expression { !params.SKIP_CCB } }
+            steps {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
+                        def buildIds = env.BUILD_IDS.split(',')
+                        echo "========== 监控 ${params.PROJECT_NAME} =========="
+                        if (!waitForBuild(buildIds: buildIds, project: params.PROJECT_NAME, pollInterval: 10, timeoutMinutes: 360)) {
+                            echo "⚠️ kernel-64k 构建监控超时 (6h)，继续下一步"
+                            error("构建超时")
+                        }
+                        echo "✅ ${params.PROJECT_NAME} 构建完成"
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // Step 3: 触发 create-kernel_64k-repo 作业
+        // ============================================
+        stage('触发create-kernel_64k-repo') {
+            when { expression { !params.SKIP_REPO } }
+            steps {
+                script {
+                    echo "========== 触发 create-kernel_64k-repo 流水线 =========="
+                    build(
+                        job: 'create-kernel_64k-repo',
+                        propagate: false,
+                        wait: true
+                    )
+                    echo "✅ create-kernel_64k-repo 已完成"
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// 辅助函数：触发构建，返回 build_id 列表
+// ============================================================
+def triggerBuild(Map args) {
+    def project = args.project
+    def buildType = args.buildType
+    def cmd = "${CCB_HOME}/sbin/cli/ccb build os_project=${project} build_type=${buildType}"
+
+    echo "执行: ${cmd}"
+    try {
+        def output = sh(script: cmd, returnStdout: true).trim()
+        echo "返回: ${output}"
+
+        def json = readJSON(text: output)
+        return json.data.keySet().toList()
+    } catch (Exception e) {
+        echo "❌ 触发构建失败: ${e.message}"
+        sendFeishu(
+            title: "触发构建失败",
+            project: project,
+            isSuccess: false,
+            note: 'Jenkins kernel-64k 构建流水线告警通知',
+            detail: "构建类型: ${buildType}\n错误信息: ${e.message}"
+        )
+        throw e
+    }
+}
+
+// ==================================================================
+// 辅助函数：轮询等待构建工程结束，同时判断packagesToCheck里面的包是否构建成功
+// ==================================================================
+def waitForBuild(Map args) {
+    def buildIds = args.buildIds
+    def pollInterval = args.pollInterval
+    def timeoutMinutes = args.timeoutMinutes
+    def project = args.project
+
+    def bs = buildStatus()
+    def projectStatusStop = bs.projectStatusStop
+    def projectStatusNotice = bs.projectStatusNotice
+    def projectStatusSuccess = bs.projectStatusSuccess
+    def projectStatusFail = bs.projectStatusFail
+    def packageStatusSuccess = bs.packageStatusSuccess
+    def packagesToCheck = ['kernel-64k', 'umdk']
+    def startTime = System.currentTimeMillis()
+    def iteration = 0
+    def timeoutMs = timeoutMinutes ? timeoutMinutes * 60 * 1000 : null
+
+    while (true) {
+        if (timeoutMs != null) {
+            def elapsed = System.currentTimeMillis() - startTime
+            if (elapsed > timeoutMs) {
+                echo "⚠️ 监控超时 (${timeoutMinutes}min)，已等待 ${String.format('%.1f', elapsed / 1000 / 60)} 分钟"
+                sendFeishu(
+                    title: "构建监控超时",
+                    project: project,
+                    isSuccess: false,
+                    note: 'Jenkins kernel-64k 构建流水线告警通知',
+                    detail: "超时时间: ${timeoutMinutes} 分钟\n已等待: ${String.format('%.1f', elapsed / 1000 / 60)} 分钟\nbuild_ids: ${buildIds.join(', ')}"
+                )
+                return false
+            }
+        }
+
+        sleep(pollInterval)
+        iteration++
+
+        def allFinished = true
+
+        for (def buildId in buildIds) {
+            def output = sh(
+                script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
+                returnStdout: true
+            ).trim()
+
+            try {
+                def json = readJSON(text: output)
+
+                if (!json || json.isEmpty()) {
+                    allFinished = false
+                    continue
+                }
+
+                json.each { item ->
+                    if (!item || !item._source) {
+                        allFinished = false
+                        return
+                    }
+                    def projStatus = item._source?.status
+                    if (projStatus != null && !(projStatus in projectStatusStop)) {
+                        allFinished = false
+                    }
+                }
+            } catch (Exception e) {
+                allFinished = false
+            }
+        }
+
+        if (allFinished) {
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "所有构建结束 (耗时: ${String.format('%.1f', elapsed)} 分钟)"
+            def noticeDetails = []
+            def hasFailure = false
+            def hasNotice = false
+            for (def buildId in buildIds) {
+                def output = sh(
+                    script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f status",
+                    returnStdout: true
+                ).trim()
+                try {
+                    def json = readJSON(text: output)
+                    if (json) {
+                        json.each { item ->
+                            if (item?._source) {
+                                def projStatus = item._source?.status
+                                echo "build_id ${buildId}: 项目状态: ${projStatus}"
+                                if (projStatus != projectStatusSuccess) {
+                                    hasFailure = true
+                                }
+                                if (projStatus in projectStatusNotice) {
+                                    hasNotice = true
+                                    noticeDetails << "build_id ${buildId}: 状态 ${projStatus}"
+                                }
+                                // 状态202时，进一步查询软件包构建状态
+                                if (projStatus == projectStatusFail) {
+                                    def pkgOutput = sh(
+                                        script: "${CCB_HOME}/sbin/cli/ccb select builds build_id=${buildId} -f build_packages",
+                                        returnStdout: true
+                                    ).trim()
+                                    try {
+                                        def pkgJson = readJSON(text: pkgOutput)
+                                        if (pkgJson && pkgJson[0]?._source?.build_packages) {
+                                            def buildPackages = pkgJson[0]._source.build_packages
+                                            for (def pkgName in packagesToCheck) {
+                                                if (buildPackages[pkgName]?.build?.status != null &&
+                                                    buildPackages[pkgName].build.status != packageStatusSuccess) {
+                                                    hasNotice = true
+                                                    noticeDetails << "build_id ${buildId}: 软件包 ${pkgName} 构建失败 (status: ${buildPackages[pkgName].build.status})"
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception e) {
+                                        echo "查询软件包状态异常 (buildId: ${buildId}): ${e.message}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    echo "查询结果异常 (buildId: ${buildId}): ${e.message}"
+                    hasFailure = true
+                }
+            }
+            if (hasNotice) {
+                echo "⚠️ 存在需要通知的构建状态"
+                sendFeishu(
+                    title: "构建存在异常状态",
+                    project: project,
+                    isSuccess: false,
+                    note: 'Jenkins kernel-64k 构建流水线告警通知',
+                    detail: "耗时: ${String.format('%.1f', elapsed)} 分钟\n${noticeDetails.join("\n")}"
+                )
+            }
+            if (hasFailure) {
+                echo "⚠️ 存在构建失败的项目"
+                return false
+            }
+            return true
+        }
+
+        if (iteration % 30 == 0) {
+            def elapsed = (System.currentTimeMillis() - startTime) / 1000 / 60
+            echo "构建中... (已等待 ${String.format('%.1f', elapsed)} 分钟, 查询 ${iteration} 次)"
+        }
+    }
+}
