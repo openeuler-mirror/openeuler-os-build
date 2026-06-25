@@ -296,9 +296,10 @@ def waitForBuild(Map args) {
     def pollInterval = args.pollInterval
     def timeoutMinutes = args.timeoutMinutes
 
-    def projectStatusStop = [201, 202, 203, 205]
-    def projectStatusNotice = [203, 205]
-    def projectStatusSuccess = [201]
+    def bs = buildStatus()
+    def projectStatusStop = bs.projectStatusStop
+    def projectStatusNotice = bs.projectStatusNotice
+    def projectStatusSuccess = bs.projectStatusSuccess
     def startTime = System.currentTimeMillis()
     def iteration = 0
     def timeoutMs = timeoutMinutes ? timeoutMinutes * 60 * 1000 : null
@@ -371,7 +372,7 @@ def waitForBuild(Map args) {
                             if (item?._source) {
                                 def projStatus = item._source?.status
                                 echo "build_id ${buildId}: 项目状态: ${projStatus}"
-                                if (!(projStatus in projectStatusSuccess)) {
+                                if (projStatus != projectStatusSuccess) {
                                     hasFailure = true
                                 }
                                 if (projStatus in projectStatusNotice) {

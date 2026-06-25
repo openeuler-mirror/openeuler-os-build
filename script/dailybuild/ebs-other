@@ -178,7 +178,6 @@ pipeline {
         always {
             script {
                 node {
-                    def buildStatus = currentBuild.result ?: 'SUCCESS'
                     def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
 
                     def jobLines = ''
@@ -196,11 +195,16 @@ pipeline {
                         'make_microvm_image_x86_64',
                         'make_raspi_image_aarch64'
                     ]
+                    def hasFailure = false
                     jobOrder.each { name ->
                         def result = env."OTHER_RESULT_${name}" ?: 'SKIPPED'
                         def emoji = result == 'SUCCESS' ? '✅' : (result == 'SKIPPED' ? '⬜' : '❌')
                         jobLines += "${emoji} ${name}: ${result}\n"
+                        if (result != 'SUCCESS' && result != 'SKIPPED') {
+                            hasFailure = true
+                        }
                     }
+                    def buildStatus = hasFailure ? 'FAILURE' : 'SUCCESS'
 
                     sendFeishu(
                         title: "${params.STANDARD_PROJECT} 镜像构建通知",
