@@ -74,65 +74,51 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 2: everything 工程 + kernel_64k 构建（并行）
+        // Step 2: 触发并等待 everything 工程构建
         // ============================================
-        stage('触发everything工程构建') {
+        stage('触发并等待everything工程构建') {
             when { expression { !params.get('SKIP_EVERYTHING', false) } }
             steps {
-                script {
-                    def project = "${params.PROJECT_NAME}:everything"
-                    echo "========== ccb build ${project} =========="
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    script {
+                        def project = "${params.PROJECT_NAME}:everything"
+                        echo "========== ccb build ${project} =========="
 
-                    // 现在返回的是 build_id 列表
-                    def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
-                    env.BUILD_IDS_1 = buildIds.join(',')
-                    echo "构建已触发, build_ids: ${env.BUILD_IDS_1}"
-                }
-            }
-        }
+                        // 触发构建，返回 build_id 列表
+                        def buildIds = triggerBuild(project: project, buildType: params.BUILD_TYPE)
+                        echo "构建已触发, build_ids: ${buildIds.join(',')}"
 
-        stage('等待everything & 构建kernel_64k') {
-            when { expression { !params.get('SKIP_EVERYTHING', false) || !params.get('SKIP_64k', false) } }
-            steps {
-                script {
-                    echo "========== 等待everything + 构建kernel_64k =========="
-                    def branches = [:]
-                    
-                    if (!params.get('SKIP_EVERYTHING', false)) {
-                        branches['等待everything'] = {
-                            catchError(buildResult: null, stageResult: 'UNSTABLE') {
-                                def buildIds = env.BUILD_IDS_1.split(',')
-                                echo "========== 监控 ${params.PROJECT_NAME}:everything =========="
-                                if (!waitForBuild(buildIds: buildIds, project: "${params.PROJECT_NAME}:everything", pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
-                                    echo "⚠️ everything工程构建未成功完成，继续下一步"
-                                    error("构建未成功完成")
-                                }
-                                echo "✅ ${params.PROJECT_NAME}:everything 构建完成"
-                            }
+                        echo "========== 监控 ${project} =========="
+                        if (!waitForBuild(buildIds: buildIds, project: project, pollInterval: 10, timeoutMinutes: params.get('EVERYTHING_TIMEOUT', '480').toInteger())) {
+                            echo "⚠️ everything工程构建未成功完成，继续下一步"
+                            error("构建未成功完成")
                         }
+                        echo "✅ ${project} 构建完成"
                     }
-                    
-                    if (!params.get('SKIP_64k', false)) {
-                        branches['构建kernel_64k'] = {
-                            catchError(buildResult: null, stageResult: 'UNSTABLE') {
-                                echo "========== 触发 ${params.PROJECT_NAME}-EBS-kernel_64k =========="
-                                build(
-                                    job: "${params.PROJECT_NAME}-EBS-kernel_64k",
-                                    propagate: false,
-                                    wait: true
-                                )
-                                echo "✅ ${params.PROJECT_NAME}-EBS-kernel_64k 已完成"
-                            }
-                        }
-                    }
-                    
-                    parallel branches
                 }
             }
         }
 
         // ============================================
-        // Step 3: 触发第二个 ccb build + check_install（并行）
+        // Step 3: 构建 kernel_64k（everything 完成后）
+        // ============================================
+        stage('构建kernel_64k') {
+            when { expression { !params.get('SKIP_64k', false) } }
+            steps {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    echo "========== 触发 ${params.PROJECT_NAME}-EBS-kernel_64k =========="
+                    build(
+                        job: "${params.PROJECT_NAME}-EBS-kernel_64k",
+                        propagate: false,
+                        wait: true
+                    )
+                    echo "✅ ${params.PROJECT_NAME}-EBS-kernel_64k 已完成"
+                }
+            }
+        }
+
+        // ============================================
+        // Step 4: 触发 epol 工程 & 制作ISO镜像（并行）
         // ============================================
         stage('触发epol工程 & 制作ISO镜像') {
             when { expression { !params.get('SKIP_EPOL', false) || !params.get('SKIP_ISO', false) } }
@@ -169,7 +155,7 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 4: 监控 epol 工程
+        // Step 5: 监控 epol 工程
         // ============================================
         stage('等待epol工程构建完成') {
             when { expression { !params.get('SKIP_EPOL', false) } }
@@ -189,7 +175,7 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 5: 触发 make_iso
+        // Step 6: 触发 make_iso
         // ============================================
         stage('制作其他镜像') {
             when { expression { !params.get('SKIP_OTHER', false) } }
@@ -207,7 +193,7 @@ ENDOFFILE
         }
 
         // ============================================
-        // Step 6: 触发 openQA 测试
+        // Step 7: 触发 openQA 测试
         // ============================================
         stage('执行openQA测试') {
             when { expression { !params.get('SKIP_TEST', false) } }
