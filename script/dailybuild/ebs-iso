@@ -149,7 +149,7 @@ pipeline {
     post {
         always {
             script {
-                node {
+                node('k8s-x86-openeuler-cbs') {
                     def duration = (currentBuild.durationString ?: 'unknown').replace(' and counting', '')
 
                     def jobLines = ''
