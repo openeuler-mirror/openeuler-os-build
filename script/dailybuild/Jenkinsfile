@@ -110,7 +110,7 @@ ENDOFFILE
                     build(
                         job: "${params.PROJECT_NAME}-EBS-kernel_64k",
                         propagate: false,
-                        wait: true
+                        wait: !(params.PROJECT_NAME == 'openEuler-24.03-LTS-SP3')
                     )
                     echo "✅ ${params.PROJECT_NAME}-EBS-kernel_64k 已完成"
                 }
