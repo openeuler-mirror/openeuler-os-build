@@ -251,25 +251,34 @@ def triggerBuild(Map args) {
     def project = args.project
     def buildType = args.buildType
     def cmd = "${CCB_HOME}/sbin/cli/ccb build os_project=${project} build_type=${buildType}"
+    def maxRetries = 3
+    def retryWait = 30
 
-    echo "执行: ${cmd}"
-    try {
-        def output = sh(script: cmd, returnStdout: true).trim()
-        echo "返回: ${output}"
+    for (def attempt = 1; attempt <= maxRetries; attempt++) {
+        echo "执行: ${cmd} (第 ${attempt}/${maxRetries} 次尝试)"
+        try {
+            def output = sh(script: cmd, returnStdout: true).trim()
+            echo "返回: ${output}"
 
-        def json = readJSON(text: output)
-        // 获取所有 build_id（data 的所有 key）
-        return json.data.keySet().toList()
-    } catch (Exception e) {
-        echo "❌ 触发构建失败: ${e.message}"
-        sendFeishu(
-            title: "触发构建失败",
-            project: project,
-            isSuccess: false,
-            note: 'Jenkins 日构建流水线告警通知',
-            detail: "构建类型: ${buildType}\n错误信息: ${e.message}"
-        )
-        throw e
+            def json = readJSON(text: output)
+            // 获取所有 build_id（data 的所有 key）
+            return json.data.keySet().toList()
+        } catch (Exception e) {
+            echo "❌ 触发构建失败 (第 ${attempt}/${maxRetries} 次): ${e.message}"
+            if (attempt < maxRetries) {
+                echo "等待 ${retryWait}s 后重试..."
+                sleep(retryWait)
+            } else {
+                sendFeishu(
+                    title: "触发构建失败",
+                    project: project,
+                    isSuccess: false,
+                    note: 'Jenkins 日构建流水线告警通知',
+                    detail: "构建类型: ${buildType}\n已重试 ${maxRetries} 次仍失败\n错误信息: ${e.message}"
+                )
+                throw e
+            }
+        }
     }
 }
 
