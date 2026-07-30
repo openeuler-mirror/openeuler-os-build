@@ -177,23 +177,41 @@ function save_pkg_commits(){
 # save pkg rpm info file
 function save_csv_file() {
 	local suffix="$1"
-    local csv_file_name="${2}${suffix:+_$suffix}.csv"
-    local csv_file_path="${3}/${csv_file_name}"
+	local csv_file_name="${2}${suffix:+_$suffix}.csv"
+	local csv_file_path="${3}/${csv_file_name}"
+	local base_pkg rpms line
 
 	cmd="if [ ! -f ${csv_file_path} ];then touch ${csv_file_path};fi"
 	ssh_cmd ${source_ip} "${cmd}"
 	rm -f ${csv_file_name}
 	scp -i ${ssh_key} ${ssh_str} root@${source_ip}:${csv_file_path} ${work_path}
 
-	for pkg in ${pkglist[@]}
-	do
-		sed -i "/${pkg%%:*},/d" ${csv_file_name}
-		if [[ ${action} == "update" ]] || [[ ${action} == "create" ]];then
-			rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist | sort | uniq)
-			line="${pkg%%:*},${rpms[@]}"
+	if [[ ${action} == "update" ]] || [[ ${action} == "create" ]];then
+		declare -A pkg_rpms_map
+		for pkg in ${pkglist[@]}
+		do
+			base_pkg=${pkg%%:*}
+			rpms=$(cat ${project}-aarch64-${pkg}_rpmlist ${project}-x86_64-${pkg}_rpmlist 2>/dev/null | sort | uniq)
+			if [[ -n "${pkg_rpms_map[$base_pkg]}" ]];then
+				pkg_rpms_map[$base_pkg]="${pkg_rpms_map[$base_pkg]} ${rpms}"
+			else
+				pkg_rpms_map[$base_pkg]="${rpms}"
+			fi
+		done
+		for base_pkg in ${!pkg_rpms_map[@]}
+		do
+			sed -i "/^${base_pkg},/d" ${csv_file_name}
+			rpms=$(echo ${pkg_rpms_map[$base_pkg]} | tr ' ' '\n' | sort -u | tr '\n' ' ')
+			line="${base_pkg},${rpms}"
 			echo ${line} >> ${csv_file_name}
-		fi
-	done
+		done
+		unset pkg_rpms_map
+	else
+		for pkg in ${pkglist[@]}
+		do
+			sed -i "/^${pkg%%:*},/d" ${csv_file_name}
+		done
+	fi
 	scp -i ${ssh_key} ${ssh_str} ${csv_file_name} root@${source_ip}:${csv_file_path}
 	rm -f ${csv_file_name}
 }
