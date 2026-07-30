@@ -174,6 +174,97 @@ function save_pkg_commits(){
 	rm -f ${commit_file_name}
 }
 
+# download 64k rpms (kernel/umdk) for openEuler LTS SPx everything projects
+function handle_64k_rpms() {
+	local sp4_64k_projects=(
+		"openEuler-24.03-LTS-SP4:everything"
+	)
+	if [[ ! " ${sp4_64k_projects[@]} " =~ " ${project} " ]]; then
+		return 0
+	fi
+
+	local has_kernel=0 has_umdk=0
+	for pkg in ${pkglist[@]}
+	do
+		case "${pkg%%:*}" in
+			kernel) has_kernel=1 ;;
+			umdk)   has_umdk=1 ;;
+		esac
+	done
+	if [[ ${has_kernel} -eq 0 ]] && [[ ${has_umdk} -eq 0 ]]; then
+		return 0
+	fi
+
+	local base_project=${project%%:everything*}
+	local sp4_64k_url="https://dailybuild.openeuler.openatom.cn/EulerMaker/${base_project}/kernel-64k/Packages/"
+	local sp4_64k_dir="kernel-64k-rpms"
+	local rpm_patterns=()
+
+	if [[ ${has_kernel} -eq 1 ]]; then
+		rpm_patterns+=(
+			"kernel-64k-[0-9]"
+			"kernel-64k-devel-[0-9]"
+			"kernel-64k-extra-modules-[0-9]"
+			"kernel-64k-source-[0-9]"
+		)
+	fi
+	if [[ ${has_umdk} -eq 1 ]]; then
+		rpm_patterns+=("umdk-ums-64kb-[0-9]")
+	fi
+
+	rm -rf ${sp4_64k_dir} && mkdir -p ${sp4_64k_dir}
+
+	# fetch directory listing and find actual rpm filenames
+	wget -q -O ${sp4_64k_dir}/index.html ${sp4_64k_url} 2>/dev/null || {
+		echo "[WARNING]: failed to access 64k url: ${sp4_64k_url}"
+		rm -rf ${sp4_64k_dir}
+		return 0
+	}
+
+	local downloaded=0
+	for pattern in "${rpm_patterns[@]}"
+	do
+		rpm_file=$(grep -oP "${pattern}[^\"]*\.aarch64\.rpm" ${sp4_64k_dir}/index.html | head -1)
+		if [[ -n "${rpm_file}" ]]; then
+			wget -q -P ${sp4_64k_dir} "${sp4_64k_url}${rpm_file}" && downloaded=1
+			echo "[INFO]: download 64k rpm: ${rpm_file}"
+		else
+			echo "[WARNING]: not found 64k rpm matching: ${pattern}"
+		fi
+	done
+
+	if [[ ${downloaded} -eq 0 ]]; then
+		echo "[WARNING]: no 64k rpms downloaded"
+		rm -rf ${sp4_64k_dir}
+		return 0
+	fi
+
+	# copy to update directory
+	local arch_dir="${update_path}/aarch64/Packages"
+	for rpm_file in ${sp4_64k_dir}/*.rpm
+	do
+		if [ -f "${rpm_file}" ]; then
+			scp -i ${ssh_key} ${ssh_str} ${rpm_file} root@${source_ip}:${arch_dir}/
+		fi
+	done
+
+	# append rpm filenames to corresponding pkg rpmlist files
+	for pkg in ${pkglist[@]}
+	do
+		local base_pkg=${pkg%%:*}
+		case "${base_pkg}" in
+			kernel)
+				ls ${sp4_64k_dir}/kernel-64k-*.rpm 2>/dev/null | awk -F'/' '{print $NF}' >> ${project}-aarch64-${pkg}_rpmlist
+				;;
+			umdk)
+				ls ${sp4_64k_dir}/umdk-*.rpm 2>/dev/null | awk -F'/' '{print $NF}' >> ${project}-aarch64-${pkg}_rpmlist
+				;;
+		esac
+	done
+
+	rm -rf ${sp4_64k_dir}
+}
+
 # save pkg rpm info file
 function save_csv_file() {
 	local suffix="$1"
@@ -595,6 +686,7 @@ function main() {
 	install_createrepo
 	if [ ${action} == "create" ];then
 		copy_rpm
+		handle_64k_rpms
 		update_json_file
 		save_csv_file "${action}" "${branch}" "${update_path}"
 		save_csv_file "" "${branch}" "${update_path}"
@@ -604,6 +696,7 @@ function main() {
 		save_pkg_commits
 	elif [ ${action} == "update" ];then
 		update_rpm
+		handle_64k_rpms
 		save_csv_file "${action}" "${branch}" "${update_path}"
 		save_csv_file "" "${branch}" "${update_path}"
 		check_update_rpm
