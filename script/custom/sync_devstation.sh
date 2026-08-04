@@ -40,11 +40,11 @@ SSH_CMD="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/de
 # Helper functions
 ######################
 log_info() {
-    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $*"
+    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $*" >&2
 }
 
 log_error() {
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $*"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $*" >&2
     exit 1
 }
 
@@ -110,7 +110,7 @@ for arch_info in "openeuler_ARM64 aarch64" "openeuler_X86 x86_64"; do
     read -r version_arch iso_arch <<< "${arch_info}"
 
     # Find DevStation standard DVD ISO (copied from source)
-    dev_iso=$(${SSH_CMD} "ls '${TARGET_DIR}/ISO/${iso_arch}/openEuler-*-DevStation-${iso_arch}-dvd.iso' 2>/dev/null | head -1") || true
+    dev_iso=$(${SSH_CMD} "ls ${TARGET_DIR}/ISO/${iso_arch}/openEuler-*-DevStation-${iso_arch}-dvd.iso 2>/dev/null | head -1") || true
     if [ -n "${dev_iso}" ]; then
         dev_iso_name=$(basename "${dev_iso}")
         dev_iso_url="${RELEASE_HTTP_URL}/${sub_dir}/ISO/${iso_arch}/${dev_iso_name}"
@@ -121,7 +121,7 @@ for arch_info in "openeuler_ARM64 aarch64" "openeuler_X86 x86_64"; do
     fi
 
     # Find DevStation Everything ISO (already built in target)
-    everything_iso=$(${SSH_CMD} "ls '${TARGET_DIR}/ISO/${iso_arch}/openEuler-*-DevStation-everything-${iso_arch}-dvd.iso' 2>/dev/null | head -1") || true
+    everything_iso=$(${SSH_CMD} "ls ${TARGET_DIR}/ISO/${iso_arch}/openEuler-*-DevStation-everything-${iso_arch}-dvd.iso 2>/dev/null | head -1") || true
     if [ -n "${everything_iso}" ]; then
         everything_iso_name=$(basename "${everything_iso}")
         everything_iso_url="${RELEASE_HTTP_URL}/${sub_dir}/ISO/${iso_arch}/${everything_iso_name}"
