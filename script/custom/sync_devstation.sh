@@ -115,7 +115,8 @@ for arch_info in "openeuler_ARM64 aarch64" "openeuler_X86 x86_64"; do
         dev_iso_name=$(basename "${dev_iso}")
         dev_iso_url="${RELEASE_HTTP_URL}/${sub_dir}/ISO/${iso_arch}/${dev_iso_name}"
         ${SSH_CMD} "echo '${dev_iso_url}' > '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_iso_DevStation'; chmod 644 '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_iso_DevStation'"
-        log_info "release_iso_DevStation (${version_arch}): ${dev_iso_url}"
+        ${SSH_CMD} "cp '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_iso_DevStation' '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_iso'"
+        log_info "release_iso_DevStation / release_iso (${version_arch}): ${dev_iso_url}"
     else
         log_info "Warning: DevStation DVD ISO not found for ${iso_arch}, skipping release_iso_DevStation"
     fi
@@ -126,7 +127,8 @@ for arch_info in "openeuler_ARM64 aarch64" "openeuler_X86 x86_64"; do
         everything_iso_name=$(basename "${everything_iso}")
         everything_iso_url="${RELEASE_HTTP_URL}/${sub_dir}/ISO/${iso_arch}/${everything_iso_name}"
         ${SSH_CMD} "echo '${everything_iso_url}' > '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_everything_DevStation'; chmod 644 '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_everything_DevStation'"
-        log_info "release_everything_DevStation (${version_arch}): ${everything_iso_url}"
+        ${SSH_CMD} "cp '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_everything_DevStation' '${HTTP_DIR}/${TARGET_PRE_VERSION}/${version_arch}/release_everything'"
+        log_info "release_everything_DevStation / release_everything (${version_arch}): ${everything_iso_url}"
     else
         log_info "Warning: Everything ISO not found for ${iso_arch}, skipping release_everything_DevStation"
     fi
