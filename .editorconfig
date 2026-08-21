@@ -1,0 +1,13 @@
+# 与 Shfmt 配合使用
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# 项目现有 shell 脚本以 4 空格缩进为主（62/77），tab 文件提交时由 shfmt 归一化
+[*.{sh,bash,zsh}]
+indent_style = space
+indent_size = 4
