@@ -34,7 +34,7 @@ function build_and_wait()
     if ! echo "${CI_PROJECT}" | grep '_gcov'; then
         PRJS=$(cat "${service_list}" | grep 'project name' | awk -F'"' '{print $2}' | sort | uniq)
         PRJS=$(echo "${PRJS}" | sed 's/ /@/g')
-        curl  "${JENKINS_URL}"/job/obs_meta_tags/buildWithParameters?token=xdf -d GERRIT_BRANCH='next' \
+        curl  "${JENKINS_URL}"/job/obs_meta_tags/buildWithParameters?token="${BUILD_TRIGGER_TOKEN}" -d GERRIT_BRANCH='next' \
               -d GERRIT_OBSLIST="${PRJS}" \
               -d GERRIT_DAILYVERSION="${TIME}"
     fi

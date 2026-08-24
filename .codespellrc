@@ -1,0 +1,5 @@
+[codespell]
+skip = .git,*.lock,node_modules,.next,coverage,build,dist,vendor,third_party
+# 项目术语/专有名词：packages_duty.yaml 中的真实包名（sord/libell/testng/expresso/tre/soem）
+# 与 shell 脚本中的配置键 compiletime（非拼写错误）
+ignore-words-list = compiletime,expresso,libell,sord,soem,testng,tre

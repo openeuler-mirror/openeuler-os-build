@@ -69,28 +69,6 @@ function chmod_http()
     sshcmd "${SSH_CMD}"
 }
 
-######################
-# trigger jenkins project 
-# Globals:
-# Arguments:
-# Returns:
-######################
-function trigger_jenkins_project()
-{
-    jenkins_prj="$1"
-    product="$2"
-    set +u
-    if [ "x${team_from_jenkins}" != "x" ]; then
-        return 0
-    fi
-    if [ "x${product}" == "x" ]; then
-        CMD="curl http://10.175.100.200:8080/jenkins/job//${jenkins_prj}/build?token=xdf"
-    else
-        CMD="curl http://10.175.100.200:8080/jenkins/job/${jenkins_prj}/buildWithParameters?token=xdf -d CONFIG_URL=http://${RELEASE_SERVER_IP}/${PRE_VERSION}/${VERSION}/config_${product}"
-    fi
-    eval "${CMD}"
-}
-
 function get_repose()
 {
     expect -c "
