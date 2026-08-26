@@ -4,9 +4,11 @@ systemctl enable systemd-timesyncd
 systemctl enable hciuart
 systemctl enable haveged
 echo openEuler > /etc/hostname
-echo "openeuler" | passwd --stdin root
-useradd -m -G "wheel" -s "/bin/bash" pi
-echo "raspberry" | passwd --stdin pi
+echo "openEuler12#$" | passwd --stdin root
+if ! id openeuler; then
+    useradd -m -G "wheel" -s "/bin/bash" openeuler
+fi
+echo "openEuler12#$" | passwd --stdin openeuler
 if [ -f /usr/share/zoneinfo/Asia/Shanghai ]; then
     if [ -f /etc/localtime ]; then
         rm -f /etc/localtime
