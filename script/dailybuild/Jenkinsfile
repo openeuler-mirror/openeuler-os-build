@@ -35,7 +35,7 @@ SRV_HTTP_RESULT_PORT: ${CCB_GATEWAY_PORT}
 SRV_HTTP_RESULT_PROTOCOL: http://
 GATEWAY_IP: ${CCB_GATEWAY_HOST}
 GATEWAY_PORT: ${CCB_GATEWAY_PORT}
-ACCOUNT: eulermaker
+ACCOUNT: ych
 PASSWORD: ${OAUTH_PWD}
 OAUTH_TOKEN_URL: "https://omapi.osinfra.cn/oneid/oidc/token"
 OAUTH_REDIRECT_URL: "http://eulermaker.openeuler.openatom.cn/oauth/"
