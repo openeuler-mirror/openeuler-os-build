@@ -51,6 +51,14 @@ function make_iso_everything_inchroot()
         sed -i '/<packagelist type="exclude">/a\        <packagereq>'$rpmsname'</packagereq>' config/rpmlist.xml
     done
     REPOS=`echo "${STANDARD_PROJECT_REPO} ${THIRD_REPO}" | sed 's/[ \t]*$//g'`
+
+    # If version contains DevStation, shorten to Dev to avoid volume ID exceeding 32 chars
+    ORIG_OS_VERSION="${OS_VERSION}"
+    if [[ "${OS_VERSION}" == *DevStation* ]]; then
+        OS_VERSION="${OS_VERSION//DevStation/Dev}"
+        log_info "Shortened OS_VERSION from ${ORIG_OS_VERSION} to ${OS_VERSION} for ISO build"
+    fi
+
     set +e
     num=0
     while [ "${num}" -lt 3 ]
@@ -78,6 +86,23 @@ function make_iso_everything_inchroot()
         log_error "can not find iso"
     fi
     create_checksum "${TGZ_NAME}"
+
+    # If version was shortened for ISO build, rename ISO files back to original DevStation name
+    if [[ "${ORIG_OS_VERSION}" == *DevStation* ]]; then
+        NEW_TGZ_NAME="${TGZ_NAME//${OS_VERSION}/${ORIG_OS_VERSION}}"
+        if [[ "${TGZ_NAME}" != "${NEW_TGZ_NAME}" ]]; then
+            log_info "Renaming ISO from ${TGZ_NAME} to ${NEW_TGZ_NAME}"
+            mv "${TGZ_NAME}" "${NEW_TGZ_NAME}"
+            OLD_SHA_FILE="${TGZ_NAME}${SHA256SUM}"
+            NEW_SHA_FILE="${NEW_TGZ_NAME}${SHA256SUM}"
+            if [[ -f "${OLD_SHA_FILE}" ]]; then
+                sed -i "s/${TGZ_NAME}/${NEW_TGZ_NAME}/g" "${OLD_SHA_FILE}"
+                mv "${OLD_SHA_FILE}" "${NEW_SHA_FILE}"
+            fi
+            TGZ_NAME="${NEW_TGZ_NAME}"
+        fi
+        OS_VERSION="${ORIG_OS_VERSION}"
+    fi
 
     RELEASE_DIR="${release_dir}/ISO/$ARCH"
     MOUNT_DIR="${release_dir}/everything/$ARCH"
