@@ -64,7 +64,7 @@ DEVLIST
         sed -i '/VERSION=/ iexport CI_PROJECT="openeuler_ARM64_gcov"' "${OPENEULER_CHROOT_PATH}"/home/internal.sh
     fi
     if [[ ${STEP} == "get_epol_rpms" ]];then
-        git clone --depth=1 https://gitee.com/src-openeuler/openEuler-repos -b openEuler-23.03
+        git clone --depth=1 https://atomgit.com/src-openeuler/openEuler-repos -b openEuler-23.03
         cp openEuler-repos/RPM-GPG-KEY-EBS "${OPENEULER_CHROOT_PATH}/home/"
         rm -rf openEuler-repos
     fi

@@ -34,7 +34,7 @@ def get_exclude_rpm(repo_name):
     repo_path = os.path.join(os.getcwd(), repo_name)
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path)
-    git_url = f"https://gitee.com/src-openeuler/{repo_name}.git"
+    git_url = f"https://atomgit.com/src-openeuler/{repo_name}.git"
     if args.project == "openEuler:Mainline":
         branch = "master"
     else:

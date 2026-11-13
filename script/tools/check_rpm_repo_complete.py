@@ -39,7 +39,7 @@ def get_release_pkg_list():
     """
     release_pkglist = []
     repo_name = "release-management"
-    git_url = f"https://gitee.com/openeuler/{repo_name}.git"
+    git_url = f"https://atomgit.com/openeuler/{repo_name}.git"
     repo_path = git_clone(git_url, repo_name, "master")
     if args.project == "openEuler:Mainline":
         branch = "master"
@@ -72,7 +72,7 @@ def get_exclude_rpm_list():
     else:
         branch = args.project.replace(":", "-")
     repo_name = "oemaker"
-    git_url = f"https://gitee.com/src-openeuler/{repo_name}.git"
+    git_url = f"https://atomgit.com/src-openeuler/{repo_name}.git"
     repo_path = git_clone(git_url, repo_name, branch)
     cmd = "xmllint --xpath \"//packagelist[@type='exclude']/node()\" %s/rpmlist.xml \
             | grep packagereq | cut -d '>' -f 2 | cut -d '<' -f 1" % repo_path

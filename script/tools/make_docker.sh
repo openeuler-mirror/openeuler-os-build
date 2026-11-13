@@ -29,7 +29,7 @@ function make_image()
 	ARCH="$(uname -m)"
 
 	rm -rf /tmp/openeuler-os-build
-	git clone -b master https://gitee.com/openeuler/openeuler-os-build /tmp/openeuler-os-build
+	git clone -b master https://atomgit.com/openeuler/openeuler-os-build /tmp/openeuler-os-build
 	if [ $? -ne 0 ];then
 		echo "[ERROR] clone openeuler-os-build failed"
 		exit 1

@@ -84,7 +84,7 @@ def git_clone():
     repo_path = os.path.join(os.getcwd(), "oemaker")
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path)
-    git_url = "https://gitee.com/src-openeuler/oemaker.git"
+    git_url = "https://atomgit.com/src-openeuler/oemaker.git"
     if args.branch == "openEuler-Mainline":
         branch = "master"
     else:
