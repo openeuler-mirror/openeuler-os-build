@@ -20,7 +20,7 @@ function make_hmi_inchroot()
     yum install -y qemu-img bc sudo parted dosfstools e2fsprogs xz -c ${yum_conf}
 
     rm -rf CreateImage
-    git clone https://gitee.com/openeuler/CreateImage.git
+    git clone https://atomgit.com/openeuler/CreateImage.git
     if [ $? -ne 0 ];then
         echo "[ERROR] git clone CreateImage failed"
         exit 1
