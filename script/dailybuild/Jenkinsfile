@@ -68,6 +68,7 @@ ENDOFFILE
                         error("BUILD_TYPE 未配置！请在 Jenkins Job → 配置 → 'This project is parameterized' 中添加 Choice Parameter: incremental, full")
                     }
                     echo "PROJECT_NAME = ${params.PROJECT_NAME}"
+                    echo "CCB_PROJECT_NAME = ${params.get('CCB_PROJECT_NAME', '') ?: '(未设置，默认使用 PROJECT_NAME)'}"
                     echo "BUILD_TYPE = ${params.BUILD_TYPE}"
                 }
             }
@@ -81,7 +82,7 @@ ENDOFFILE
             steps {
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
                     script {
-                        def project = "${params.PROJECT_NAME}:everything"
+                        def project = "${ccbProjectName()}:everything"
                         echo "========== ccb build ${project} =========="
 
                         // 触发构建，返回 build_id 列表
@@ -124,7 +125,7 @@ ENDOFFILE
             when { expression { !params.get('SKIP_EPOL', false) || !params.get('SKIP_ISO', false) } }
             steps {
                 script {
-                    def project = "${params.PROJECT_NAME}:epol"
+                    def project = "${ccbProjectName()}:epol"
                     echo "========== 触发 ccb build ${project} + ISO 构建 =========="
 
                     parallel(
@@ -163,12 +164,13 @@ ENDOFFILE
                 catchError(buildResult: null, stageResult: 'UNSTABLE') {
                     script {
                         def buildIds = env.BUILD_IDS_2.split(',')
-                        echo "========== 监控 ${params.PROJECT_NAME}:epol =========="
-                        if (!waitForBuild(buildIds: buildIds, project: "${params.PROJECT_NAME}:epol", pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
+                        def project = "${ccbProjectName()}:epol"
+                        echo "========== 监控 ${project} =========="
+                        if (!waitForBuild(buildIds: buildIds, project: project, pollInterval: 10, timeoutMinutes: params.get('EPOL_TIMEOUT', '360').toInteger())) {
                             echo "⚠️ epol工程构建未成功完成，继续下一步"
                             error("构建未成功完成")
                         }
-                        echo "✅ ${params.PROJECT_NAME}:epol 构建完成"
+                        echo "✅ ${project} 构建完成"
                     }
                 }
             }
@@ -267,6 +269,15 @@ ENDOFFILE
             }
         }
     }
+}
+
+// ============================================================
+// 辅助函数：获取 CCB 工程名（everything/epol）
+// 优先使用 CCB_PROJECT_NAME，未配置或为空时回退到 PROJECT_NAME
+// ============================================================
+def ccbProjectName() {
+    def name = params.get('CCB_PROJECT_NAME', '')
+    return name?.trim() ? name.trim() : params.PROJECT_NAME
 }
 
 // ============================================================
